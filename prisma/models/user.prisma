@@ -1,0 +1,40 @@
+model User {
+  id String @id @default(cuid())
+
+  firstName String
+  lastName  String?
+
+  email       String @unique
+  password    String
+  designation String
+
+  avatar String?
+
+  isVerified Boolean @default(false)
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization    Organization[]
+  taskAssignee    TaskAssignee[]
+  workspace       Workspace[]
+  project         Project[]
+  projectActivity ProjectActivity[]
+
+  task         Task[]
+  taskActivity TaskActivity[]
+
+  projectMember          ProjectMember[] @relation("ProjectMembership")
+  projectMemberRemovedBy ProjectMember[] @relation("ProjectMemberRemovedBy")
+
+  workspaceMember          WorkspaceMember[] @relation("WorkspaceMembership")
+  workspaceMemberRemovedBy WorkspaceMember[] @relation("WorkspaceMemberRemovedBy")
+
+  organizationMember          OrganizationMember[] @relation("OrganizationMembership")
+  OrganizationMemberRemovedBy OrganizationMember[] @relation("OrganizationMemberRemovedBy")
+
+  taskMemberRemovedBy TaskAssignee[] @relation("TaskMemberRemovedBy")
+
+  @@map("users")
+}

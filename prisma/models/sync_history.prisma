@@ -1,0 +1,33 @@
+model SyncHistory {
+  id           String             @id @default(cuid())
+  entity       SyncEntity
+  status       SyncStatus
+  startedAt    DateTime           @default(now())
+  completedAt  DateTime?
+  durationMs   Int?
+  totalRecords Int
+  inserted     Int
+  updated      Int
+  skipped      Int
+  failed       Int
+  message      String?
+  createdBy    String?
+  createdAt    DateTime           @default(now())
+  errors       SyncHistoryError[]
+
+  @@map("sync_histories")
+}
+
+model SyncHistoryError {
+  id            String      @id @default(cuid())
+  syncHistoryId String
+  recordId      String?
+  email         String?
+  reason        String
+  payload       Json?
+  createdAt     DateTime    @default(now())
+  syncHistory   SyncHistory @relation(fields: [syncHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([syncHistoryId])
+  @@map("sync_history_errors")
+}

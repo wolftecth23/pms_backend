@@ -1,0 +1,190 @@
+// model TaskStatus {
+//   id String @id @default(cuid())
+
+//   projectId String
+
+//   name String
+
+//   order Int
+
+//   isDefault Boolean @default(false)
+
+//   isClosed Boolean @default(false)
+
+//   project Project @relation(fields: [projectId], references: [id])
+
+//   tasks Task[]
+
+//   createdAt DateTime @default(now())
+
+//   updatedAt DateTime @updatedAt
+
+//   @@unique([projectId, name])
+//   @@unique([projectId, order])
+//   @@map("task_statuses")
+// }
+
+model TaskStatus {
+  id String @id @default(cuid())
+
+  scope StatusScope @default(SYSTEM)
+
+  targetId String
+
+  name String
+
+  order Int
+
+  color String?
+
+  isDefault Boolean @default(false)
+
+  isClosed Boolean @default(false) // means this task is over
+
+  tasks     Task[]
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+
+  @@unique([scope, targetId, name])
+  @@unique([scope, targetId, order])
+  @@map("task_statuses")
+}
+
+model TaskPriority {
+  id String @id @default(cuid())
+
+  scope StatusScope @default(SYSTEM)
+
+  targetId String @default("") // organizationId workspaceId projectId
+
+  name String
+
+  order Int
+
+  color String?
+
+  isDefault Boolean @default(false)
+
+  tasks Task[]
+
+  @@unique([scope, targetId, name])
+  @@map("task_priorities")
+}
+
+model Task {
+  id String @id @default(cuid())
+
+  projectId String
+
+  parentTaskId String?
+
+  title String
+
+  taskStatusId String
+
+  description String?
+
+  comment String?
+
+  priorityId String
+
+  startDate DateTime?
+
+  dueDate DateTime?
+
+  completedAt DateTime?
+
+  estimatedHours Decimal?
+
+  actualHours Decimal?
+
+  order Int @default(0)
+
+  createdById String
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  parentTask Task? @relation("SubTasks", fields: [parentTaskId], references: [id])
+
+  subTasks Task[] @relation("SubTasks")
+
+  status TaskStatus @relation(fields: [taskStatusId], references: [id])
+
+  priority TaskPriority @relation(fields: [priorityId], references: [id])
+
+  assignees TaskAssignee[]
+
+  activities TaskActivity[]
+
+  @@index([projectId])
+  @@index([priorityId])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id String @id @default(cuid())
+
+  taskId String
+
+  projectMemberId String
+
+  assignedById String
+
+  assignedAt DateTime @default(now())
+
+  removedAt   DateTime?
+  removedById String?
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id])
+  removedBy     User?         @relation("TaskMemberRemovedBy", fields: [removedById], references: [id])
+
+  assignedBy User @relation(fields: [assignedById], references: [id])
+
+  @@unique([taskId, projectMemberId])
+  @@map("task_assignees")
+}
+
+model TaskActivity {
+  id String @id @default(cuid())
+
+  taskId String
+
+  userId String
+
+  // eventType TaskEventType
+  eventType String
+
+  // entityType TaskActivityEntity
+  entityType String
+
+  entityId String?
+
+  fieldName String?
+
+  oldValue String?
+
+  newValue String?
+
+  message String?
+
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  actor User @relation(fields: [userId], references: [id])
+
+  @@index([taskId, createdAt])
+  @@index([eventType])
+  @@index([userId])
+  @@map("task_activities")
+}

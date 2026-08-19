@@ -1,0 +1,73 @@
+model Role {
+  id String @id @default(cuid())
+
+  scope StatusScope @default(ORGANIZATION)
+
+  organizationId String?
+
+  name String
+
+  description String?
+
+  isSystem Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  members ProjectMember[]
+
+  permissions        RolePermission[]
+  organizationMember OrganizationMember[]
+  projectRoles       ProjectMember[]      @relation("ProjectRole")
+
+  @@unique([organizationId, name])
+  @@unique([scope, name])
+  @@map("roles")
+}
+
+// model RolePermission {
+//   roleId String
+
+//   permissionId String
+
+//   allowed Boolean @default(true)
+
+//   role Role @relation(fields: [roleId], references: [id])
+
+//   permission Permission @relation(fields: [permissionId], references: [id])
+
+//   @@id([roleId, permissionId])
+//   @@map("role_permissions")
+// } 
+
+model RolePermission {
+  id String @id @default(cuid())
+
+  roleId          String?
+  projectMemberId String?
+
+  permissionId String
+
+  // allowed Boolean @default(true)
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  role Role? @relation(fields: [roleId], references: [id])
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  projectMember ProjectMember? @relation(fields: [projectMemberId], references: [id])
+  // @@index([permissionId])
+
+  @@unique([roleId, permissionId])
+  @@unique([projectMemberId, permissionId])
+  @@index([roleId])
+  @@index([projectMemberId])
+  @@map("role_permissions")
+}

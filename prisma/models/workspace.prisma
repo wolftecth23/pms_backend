@@ -1,0 +1,50 @@
+model Workspace {
+  id String @id @default(cuid())
+
+  organizationId String?
+  // slug           String  @unique
+
+  name        String
+  description String?
+
+  createdById String
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  projects        Project[]
+  workspaceMember WorkspaceMember[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([organizationId, name])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id String @id @default(cuid())
+
+  workspaceId String
+  userId      String
+
+  joinedAt    DateTime  @default(now())
+  removedAt   DateTime?
+  removedById String?
+
+  // roleId String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  user User @relation("WorkspaceMembership", fields: [userId], references: [id])
+
+  removedBy User? @relation("WorkspaceMemberRemovedBy", fields: [removedById], references: [id])
+
+  // roleId String?
+  // role   Role?   @relation(fields: [roleId], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}

@@ -1,0 +1,131 @@
+model ProjectStatus {
+  id String @id @default(cuid())
+
+  scope StatusScope @default(SYSTEM)
+
+  targetId String @default("") // organizationId workspaceId projectId
+
+  name String
+
+  color String?
+
+  order Int
+
+  isDefault Boolean
+
+  isClosed Boolean
+
+  projects Project[]
+
+  @@unique([scope, targetId, name])
+  @@map("project_statuses")
+}
+
+model Project {
+  id String @id @default(cuid())
+
+  workspaceId    String
+  organizationId String
+
+  name        String
+  description String?
+  projectCode String
+
+  icon String?
+
+  statusId   String
+  priority   ProjectPriority   @default(MEDIUM)
+  visibility ProjectVisibility @default(WORKSPACE)
+
+  startDate   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  createdById String
+
+  isArchived Boolean @default(false)
+  isFavorite Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  status ProjectStatus @relation(fields: [statusId], references: [id])
+
+  members         ProjectMember[]
+  tasks           Task[]
+  taskStatus      TaskStatus[]
+  projectActivity ProjectActivity[]
+
+  @@unique([workspaceId, projectCode])
+  @@index([workspaceId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id String @id @default(cuid())
+
+  projectId String
+  userId    String
+
+  // roleId String
+
+  projectRoleId String?
+
+  visibleStatusIds String[] @default([]) // status track
+
+  joinedAt    DateTime  @default(now())
+  removedAt   DateTime?
+  removedById String?
+
+  project Project @relation(fields: [projectId], references: [id])
+  // user    User    @relation(fields: [userId], references: [id])
+
+  user User @relation("ProjectMembership", fields: [userId], references: [id])
+
+  removedBy User? @relation("ProjectMemberRemovedBy", fields: [removedById], references: [id])
+
+  projectRole Role? @relation("ProjectRole", fields: [projectRoleId], references: [id])
+
+  taskAssignee TaskAssignee[]
+
+  role            Role[]
+  rolePermissions RolePermission[]
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model ProjectActivity {
+  id String @id @default(cuid())
+
+  projectId String
+
+  userId String
+
+  // eventType ProjectEventType
+  eventType String
+
+  oldValue Json?
+  newValue Json?
+
+  description String?
+
+  previousActivityId String?
+
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  user User @relation(fields: [userId], references: [id])
+
+  previousActivity ProjectActivity? @relation("ActivityChain", fields: [previousActivityId], references: [id])
+
+  nextActivities ProjectActivity[] @relation("ActivityChain")
+
+  @@map("project_activities")
+}

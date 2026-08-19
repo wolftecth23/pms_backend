@@ -1,0 +1,50 @@
+export const DEFAULT_PROJECT_STATUSES = [
+  {
+    name: 'Planning',
+    order: 1,
+    isDefault: true,
+    isClosed: false,
+    color: '#8B5CF6',
+  },
+  {
+    name: 'Ready',
+    order: 2,
+    isDefault: false,
+    isClosed: false,
+    color: '#3B82F6',
+  },
+  {
+    name: 'Active',
+    order: 3,
+    isDefault: false,
+    isClosed: false,
+    color: '#10B981',
+  },
+  {
+    name: 'On Hold',
+    order: 4,
+    isDefault: false,
+    isClosed: false,
+    color: '#F59E0B',
+  },
+  {
+    name: 'Completed',
+    order: 5,
+    isDefault: false,
+    isClosed: true,
+    color: '#059669',
+  },
+  {
+    name: 'Cancelled',
+    order: 6,
+    isDefault: false,
+    isClosed: true,
+    color: '#EF4444',
+  },
+  // {
+  //   name: 'ARCHIVED',
+  //   order: 7,
+  //   isDefault: false,
+  //   isClosed: true,
+  // },
+] as const;

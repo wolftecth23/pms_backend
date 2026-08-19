@@ -1,0 +1,40 @@
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectVisibility {
+  PRIVATE
+  WORKSPACE
+}
+
+enum StatusScope {
+  SYSTEM
+  ORGANIZATION
+  WORKSPACE
+  PROJECT
+}
+
+enum SyncEntity {
+  USER
+  DEPARTMENT
+  ROLE
+  SHIFT
+  ATTENDANCE
+  LEAVE
+}
+
+enum SyncStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  PARTIAL_SUCCESS
+}

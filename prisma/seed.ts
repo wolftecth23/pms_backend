@@ -1,8 +1,13 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import 'dotenv/config';
+import { seedPermissions } from './seeders/permission.seed';
+import { seedProjectStatus } from './seeders/projectStatus.seed';
+import { seedRolePermissions } from './seeders/rolePermissions.seed';
+import { seedRoles } from './seeders/roles.seed';
 import { seedTaskPriority } from './seeders/taskPriority.seed';
 import { seedTaskStatus } from './seeders/taskStatus.seed';
+import { seedUsers } from './seeders/users.seed';
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -13,13 +18,13 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  // await seedProjectStatus(prisma);
+  await seedProjectStatus(prisma);
   await seedTaskPriority(prisma);
   await seedTaskStatus(prisma);
-  // await seedUsers(prisma);
-  // await seedRoles(prisma);
-  // await seedPermissions(prisma);
-  // await seedRolePermissions(prisma);
+  await seedUsers(prisma);
+  await seedRoles(prisma);
+  await seedPermissions(prisma);
+  await seedRolePermissions(prisma);
 }
 
 main()

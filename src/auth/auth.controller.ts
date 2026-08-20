@@ -44,7 +44,6 @@ export class AuthController {
       throw new UnauthorizedException({
         message: 'Invalid email or password.',
         error: 'Authentication Failed',
-        isAuthenticated: false,
       });
     }
 

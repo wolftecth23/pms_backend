@@ -240,10 +240,6 @@ export class SyncService implements OnModuleInit {
 
     const orgId = await seedOrganization(this.prisma);
 
-    const worspaceId = await seedWorkspace(this.prisma);
-
-    console.log('worspaceId', worspaceId);
-
     if (!orgId) {
       throw new Error(
         'Owner user not found. Please sync users before running this seeder.',
@@ -323,6 +319,11 @@ export class SyncService implements OnModuleInit {
       data: membersToCreate,
       skipDuplicates: true,
     });
+
+    // Seed workspace and workspace members after organization members are fully populated
+    const worspaceId = await seedWorkspace(this.prisma);
+
+    console.log('worspaceId', worspaceId);
 
     return {
       success: true,

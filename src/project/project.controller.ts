@@ -52,6 +52,23 @@ export class ProjectController {
     return this.projectService.findOne(id, request);
   }
 
+  @Get(':id/time-summary')
+  @RequirePermissions('project.view')
+  @ApiOperation({ summary: 'Get time summary for a project' })
+  getTimeSummary(@Param('id') id: string, @Request() request: AuthRequest) {
+    return this.projectService.getProjectTimeSummary(id, request);
+  }
+
+  @Get(':id/time-summary/by-designation')
+  @RequirePermissions('project.view')
+  @ApiOperation({ summary: 'Get time summary by designation for a project' })
+  getTimeSummaryByDesignation(
+    @Param('id') id: string,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.getProjectTimeSummaryByDesignation(id, request);
+  }
+
   @Post()
   @RequirePermissions('project.create')
   @ApiOperation({ summary: 'Create a new project' })

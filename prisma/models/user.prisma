@@ -35,6 +35,7 @@ model User {
   OrganizationMemberRemovedBy OrganizationMember[] @relation("OrganizationMemberRemovedBy")
 
   taskMemberRemovedBy TaskAssignee[] @relation("TaskMemberRemovedBy")
+  timeEntries         TimeEntry[]    @relation("TimeEntryCreatedBy")
 
   @@map("users")
 }

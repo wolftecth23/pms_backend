@@ -1,0 +1,38 @@
+model TimeEntry {
+  id String @id @default(cuid())
+
+  organizationId  String
+  projectId       String
+  taskId          String
+  projectMemberId String
+  taskAssigneeId  String?
+
+  durationMinutes Int
+  loggedDate      DateTime
+  description     String?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project       Project       @relation(fields: [projectId], references: [id])
+  task          Task          @relation(fields: [taskId], references: [id])
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id])
+  taskAssignee  TaskAssignee? @relation(fields: [taskAssigneeId], references: [id])
+  createdBy     User          @relation("TimeEntryCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([projectMemberId])
+  @@index([taskAssigneeId])
+  @@index([loggedDate])
+  @@index([taskId, projectMemberId])
+  @@index([projectId, loggedDate])
+  @@index([projectMemberId, loggedDate])
+  @@map("time_entries")
+}

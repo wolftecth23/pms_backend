@@ -118,10 +118,10 @@ export class TaskService {
     }
 
     /**
-     * Validate Estimated Hours
+     * Validate Estimated Minutes
      */
-    if (dto.estimatedHours && dto.estimatedHours < 0) {
-      throw new BadRequestException('Estimated hours cannot be negative.');
+    if (dto.estimatedMinutes && dto.estimatedMinutes < 0) {
+      throw new BadRequestException('Estimated minutes cannot be negative.');
     }
 
     /**
@@ -155,7 +155,7 @@ export class TaskService {
 
           dueDate: dto.dueDate || null,
 
-          estimatedHours: dto.estimatedHours ?? null,
+          estimatedMinutes: dto.estimatedMinutes ?? null,
 
           order: nextOrder,
         },
@@ -495,7 +495,7 @@ export class TaskService {
         startDate: true,
         dueDate: true,
 
-        estimatedHours: true,
+        estimatedMinutes: true,
 
         project: {
           select: {
@@ -567,8 +567,8 @@ export class TaskService {
       );
     }
 
-    if (dto.estimatedHours !== undefined && dto.estimatedHours < 0) {
-      throw new BadRequestException('Estimated hours cannot be negative.');
+    if (dto.estimatedMinutes !== undefined && dto.estimatedMinutes < 0) {
+      throw new BadRequestException('Estimated minutes cannot be negative.');
     }
 
     let projectMemberIds: string[] | undefined;
@@ -616,8 +616,8 @@ export class TaskService {
         updateData.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
       }
 
-      if (dto.estimatedHours !== undefined) {
-        updateData.estimatedHours = dto.estimatedHours;
+      if (dto.estimatedMinutes !== undefined) {
+        updateData.estimatedMinutes = dto.estimatedMinutes;
       }
 
       const updatedTask = await tx.task.update({
@@ -845,6 +845,201 @@ export class TaskService {
     return {
       message: 'Task fetched successfully.',
       data: rootTask,
+    };
+  }
+
+  async getTaskTimeSummary(taskId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        estimatedMinutes: true,
+        projectId: true,
+        project: {
+          select: {
+            organizationId: true,
+            deletedAt: true,
+          },
+        },
+        assignees: {
+          where: {
+            removedAt: null,
+          },
+          select: {
+            id: true,
+            projectMemberId: true,
+            estimatedMinutes: true,
+            projectMember: {
+              select: {
+                id: true,
+                userId: true,
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    avatar: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!task || task.project.deletedAt) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    if (task.project.organizationId !== context.organizationId) {
+      throw new ForbiddenException('Task does not belong to your organization.');
+    }
+
+    const actualTimeGrouped = await this.prisma.timeEntry.groupBy({
+      by: ['projectMemberId'],
+      where: {
+        taskId,
+        deletedAt: null,
+      },
+      _sum: {
+        durationMinutes: true,
+      },
+    });
+
+    const actualMap = new Map<string, number>();
+    let totalActualMinutes = 0;
+    for (const group of actualTimeGrouped) {
+      const sum = group._sum.durationMinutes ?? 0;
+      actualMap.set(group.projectMemberId, sum);
+      totalActualMinutes += sum;
+    }
+
+    let allocatedMinutes = 0;
+    const assigneesSummary = task.assignees.map((assignee) => {
+      const est = assignee.estimatedMinutes ?? 0;
+      allocatedMinutes += est;
+      const act = actualMap.get(assignee.projectMemberId) ?? 0;
+      return {
+        id: assignee.id,
+        projectMemberId: assignee.projectMemberId,
+        user: {
+          id: assignee.projectMember.user.id,
+          name: `${assignee.projectMember.user.firstName} ${assignee.projectMember.user.lastName || ''}`.trim(),
+          avatar: assignee.projectMember.user.avatar,
+        },
+        estimatedMinutes: est,
+        actualMinutes: act,
+        remainingMinutes: est - act,
+      };
+    });
+
+    const taskEstMinutes = task.estimatedMinutes ?? 0;
+    const remainingMinutes = taskEstMinutes - totalActualMinutes;
+    const unallocatedMinutes = taskEstMinutes - allocatedMinutes;
+
+    return {
+      task: {
+        id: task.id,
+        title: task.title,
+      },
+      estimatedMinutes: taskEstMinutes,
+      actualMinutes: totalActualMinutes,
+      remainingMinutes,
+      allocatedMinutes,
+      unallocatedMinutes,
+      assignees: assigneesSummary,
+    };
+  }
+
+  async updateAssigneeEstimate(
+    taskId: string,
+    assigneeId: string,
+    estimatedMinutes: number,
+    request: AuthRequest,
+  ) {
+    const context = await this.contextService.resolveContext(request);
+
+    const taskAssignee = await this.prisma.taskAssignee.findFirst({
+      where: {
+        id: assigneeId,
+        taskId,
+        removedAt: null,
+      },
+      include: {
+        task: {
+          select: {
+            projectId: true,
+            project: {
+              select: {
+                organizationId: true,
+              },
+            },
+          },
+        },
+        projectMember: {
+          select: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!taskAssignee) {
+      throw new NotFoundException('Task assignee not found.');
+    }
+
+    if (taskAssignee.task.project.organizationId !== context.organizationId) {
+      throw new ForbiddenException('Task does not belong to your organization.');
+    }
+
+    const oldEst = taskAssignee.estimatedMinutes;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const res = await tx.taskAssignee.update({
+        where: { id: assigneeId },
+        data: { estimatedMinutes },
+      });
+
+      const memberName = `${taskAssignee.projectMember.user.firstName} ${taskAssignee.projectMember.user.lastName || ''}`.trim();
+      const formatMin = (m: number) => {
+        const absM = Math.abs(m);
+        const h = Math.floor(absM / 60);
+        const remM = absM % 60;
+        return h > 0 ? `${h}h ${remM}m` : `${remM}m`;
+      };
+
+      await tx.taskActivity.create({
+        data: {
+          taskId,
+          userId: context.userId,
+          eventType: 'ASSIGNEE_ESTIMATE_UPDATED',
+          entityType: 'TASK_ASSIGNEE',
+          entityId: assigneeId,
+          oldValue: `${oldEst}m`,
+          newValue: `${estimatedMinutes}m`,
+          message: `Changed ${memberName}'s estimated effort from ${formatMin(oldEst)} to ${formatMin(estimatedMinutes)}.`,
+        },
+      });
+
+      return res;
+    });
+
+    return {
+      message: 'Assignee estimate updated successfully.',
+      data: updated,
     };
   }
 

@@ -94,9 +94,7 @@ model Task {
 
   completedAt DateTime?
 
-  estimatedHours Decimal?
-
-  actualHours Decimal?
+  estimatedMinutes Int?
 
   order Int @default(0)
 
@@ -124,6 +122,8 @@ model Task {
 
   activities TaskActivity[]
 
+  timeEntries TimeEntry[]
+
   @@index([projectId])
   @@index([priorityId])
   @@map("tasks")
@@ -135,6 +135,8 @@ model TaskAssignee {
   taskId String
 
   projectMemberId String
+
+  estimatedMinutes Int @default(0)
 
   assignedById String
 
@@ -150,7 +152,11 @@ model TaskAssignee {
 
   assignedBy User @relation(fields: [assignedById], references: [id])
 
+  timeEntries TimeEntry[]
+
   @@unique([taskId, projectMemberId])
+  @@index([taskId])
+  @@index([projectMemberId])
   @@map("task_assignees")
 }
 

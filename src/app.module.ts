@@ -10,6 +10,7 @@ import { ProjectStatusModule } from './project-status/project-status.module';
 import { ProjectModule } from './project/project.module';
 import { SyncModule } from './sync/sync.module';
 import { TaskModule } from './task/task.module';
+import { TimeEntryModule } from './time-entry/time-entry.module';
 import { WorkspaceMemberModule } from './workspace-member/workspace-member.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { WorkspaceMemberModule } from './workspace-member/workspace-member.modul
     CommonModule,
     ProjectModule,
     TaskModule,
+    TimeEntryModule,
     AuthModule,
     SyncModule,
     ProjectMemberModule,

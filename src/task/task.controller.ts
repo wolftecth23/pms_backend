@@ -82,6 +82,28 @@ export class TaskController {
     return this.taskService.findOne(id, request);
   }
 
+  @Get(':id/time-summary')
+  @ApiOperation({ summary: 'Get complete time summary for a task' })
+  getTimeSummary(@Param('id') id: string, @Request() request: AuthRequest) {
+    return this.taskService.getTaskTimeSummary(id, request);
+  }
+
+  @Patch(':taskId/assignees/:assigneeId/estimate')
+  @ApiOperation({ summary: 'Update estimated minutes for a specific task assignee' })
+  updateAssigneeEstimate(
+    @Param('taskId') taskId: string,
+    @Param('assigneeId') assigneeId: string,
+    @Body('estimatedMinutes') estimatedMinutes: number,
+    @Request() request: AuthRequest,
+  ) {
+    return this.taskService.updateAssigneeEstimate(
+      taskId,
+      assigneeId,
+      estimatedMinutes,
+      request,
+    );
+  }
+
   // @Delete(':id')
   // @ApiOperation({ summary: 'Delete a task' })
   // remove(@Param('id') id: string) {

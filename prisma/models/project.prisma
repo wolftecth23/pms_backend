@@ -60,6 +60,7 @@ model Project {
   tasks           Task[]
   taskStatus      TaskStatus[]
   projectActivity ProjectActivity[]
+  timeEntries     TimeEntry[]
 
   @@unique([workspaceId, projectCode])
   @@index([workspaceId])
@@ -95,6 +96,7 @@ model ProjectMember {
 
   role            Role[]
   rolePermissions RolePermission[]
+  timeEntries     TimeEntry[]
 
   @@unique([projectId, userId])
   @@map("project_members")

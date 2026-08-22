@@ -872,4 +872,221 @@ export class ProjectService {
   //     include: {},
   //   });
   // }
+
+  async getProjectTimeSummary(projectId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        organizationId: context.organizationId,
+        deletedAt: null,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const taskEstAggregate = await this.prisma.task.aggregate({
+      where: {
+        projectId,
+        deletedAt: null,
+      },
+      _sum: {
+        estimatedMinutes: true,
+      },
+    });
+    const totalEstimatedMinutes = taskEstAggregate._sum.estimatedMinutes ?? 0;
+
+    const assigneeEstGrouped = await this.prisma.taskAssignee.groupBy({
+      by: ['projectMemberId'],
+      where: {
+        task: {
+          projectId,
+          deletedAt: null,
+        },
+        removedAt: null,
+      },
+      _sum: {
+        estimatedMinutes: true,
+      },
+    });
+
+    const assigneeEstMap = new Map<string, number>();
+    let totalAllocatedMinutes = 0;
+    for (const group of assigneeEstGrouped) {
+      const sum = group._sum.estimatedMinutes ?? 0;
+      assigneeEstMap.set(group.projectMemberId, sum);
+      totalAllocatedMinutes += sum;
+    }
+
+    const actualTimeGrouped = await this.prisma.timeEntry.groupBy({
+      by: ['projectMemberId'],
+      where: {
+        projectId,
+        deletedAt: null,
+      },
+      _sum: {
+        durationMinutes: true,
+      },
+    });
+
+    const actualMap = new Map<string, number>();
+    let totalActualMinutes = 0;
+    for (const group of actualTimeGrouped) {
+      const sum = group._sum.durationMinutes ?? 0;
+      actualMap.set(group.projectMemberId, sum);
+      totalActualMinutes += sum;
+    }
+
+    const members = await this.prisma.projectMember.findMany({
+      where: {
+        projectId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatar: true,
+            designation: true,
+          },
+        },
+      },
+    });
+
+    const membersSummary = members.map((member) => {
+      const est = assigneeEstMap.get(member.id) ?? 0;
+      const act = actualMap.get(member.id) ?? 0;
+      return {
+        projectMemberId: member.id,
+        user: {
+          id: member.user.id,
+          name: `${member.user.firstName} ${member.user.lastName || ''}`.trim(),
+          avatar: member.user.avatar,
+          designation: member.user.designation,
+        },
+        estimatedMinutes: est,
+        actualMinutes: act,
+        remainingMinutes: est - act,
+      };
+    });
+
+    return {
+      projectId,
+      summary: {
+        estimatedMinutes: totalEstimatedMinutes,
+        allocatedMinutes: totalAllocatedMinutes,
+        actualMinutes: totalActualMinutes,
+        remainingMinutes: totalEstimatedMinutes - totalActualMinutes,
+        unallocatedMinutes: totalEstimatedMinutes - totalAllocatedMinutes,
+      },
+      members: membersSummary,
+    };
+  }
+
+  async getProjectTimeSummaryByDesignation(
+    projectId: string,
+    request: AuthRequest,
+  ) {
+    const context = await this.contextService.resolveContext(request);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        organizationId: context.organizationId,
+        deletedAt: null,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const members = await this.prisma.projectMember.findMany({
+      where: {
+        projectId,
+      },
+      include: {
+        user: {
+          select: {
+            designation: true,
+          },
+        },
+      },
+    });
+
+    const memberDesignationMap = new Map<string, string>();
+    for (const m of members) {
+      memberDesignationMap.set(m.id, m.user.designation || 'Unspecified');
+    }
+
+    const assigneeEstGrouped = await this.prisma.taskAssignee.groupBy({
+      by: ['projectMemberId'],
+      where: {
+        task: {
+          projectId,
+          deletedAt: null,
+        },
+        removedAt: null,
+      },
+      _sum: {
+        estimatedMinutes: true,
+      },
+    });
+
+    const actualTimeGrouped = await this.prisma.timeEntry.groupBy({
+      by: ['projectMemberId'],
+      where: {
+        projectId,
+        deletedAt: null,
+      },
+      _sum: {
+        durationMinutes: true,
+      },
+    });
+
+    const designationMap = new Map<
+      string,
+      { estimatedMinutes: number; actualMinutes: number }
+    >();
+
+    const getOrCreateBucket = (desig: string) => {
+      if (!designationMap.has(desig)) {
+        designationMap.set(desig, { estimatedMinutes: 0, actualMinutes: 0 });
+      }
+      return designationMap.get(desig)!;
+    };
+
+    for (const group of assigneeEstGrouped) {
+      const desig =
+        memberDesignationMap.get(group.projectMemberId) ?? 'Unspecified';
+      const bucket = getOrCreateBucket(desig);
+      bucket.estimatedMinutes += group._sum.estimatedMinutes ?? 0;
+    }
+
+    for (const group of actualTimeGrouped) {
+      const desig =
+        memberDesignationMap.get(group.projectMemberId) ?? 'Unspecified';
+      const bucket = getOrCreateBucket(desig);
+      bucket.actualMinutes += group._sum.durationMinutes ?? 0;
+    }
+
+    const designations = Array.from(designationMap.entries()).map(
+      ([designation, data]) => ({
+        designation,
+        estimatedMinutes: data.estimatedMinutes,
+        actualMinutes: data.actualMinutes,
+        remainingMinutes: data.estimatedMinutes - data.actualMinutes,
+      }),
+    );
+
+    return {
+      projectId,
+      designations,
+    };
+  }
 }

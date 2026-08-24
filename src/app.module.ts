@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { CommentModule } from './comment/comment.module';
 import { CommonModule } from './common/common.module';
+import { EmailModule } from './email/email.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectMemberModule } from './project-member/project-member.module';
 import { ProjectStatusModule } from './project-status/project-status.module';
@@ -26,6 +27,7 @@ import { WorkspaceMemberModule } from './workspace-member/workspace-member.modul
     ScheduleModule.forRoot(),
     PrismaModule,
     CommonModule,
+    EmailModule,
     ProjectModule,
     TaskModule,
     CommentModule,

@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { StorageService } from '../common/storage/storage.service';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { COMMENT_INCLUDE } from './comment.includes';
 import { formatComment } from './comment.serializer';
@@ -22,9 +25,13 @@ export type ScheduleStatus =
 
 @Injectable()
 export class CommentService {
+  private readonly logger = new Logger(CommentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ─── GET COMMENTS ─────────────────────────────────────────────────────────
@@ -182,7 +189,30 @@ export class CommentService {
       include: COMMENT_INCLUDE,
     });
 
-    return formatComment(comment, currentUserId);
+    const formatted = formatComment(comment, currentUserId);
+
+    // Trigger mention emails asynchronously (non-blocking, won't affect API response time)
+    if (
+      dto.mentionUserIds?.length &&
+      (!comment.scheduledFor || comment.scheduleStatus === SCHEDULE_STATUS.SENT)
+    ) {
+      setImmediate(() => {
+        this.handleMentionNotifications(
+          comment.id,
+          taskId,
+          currentUserId,
+          dto.mentionUserIds ?? [],
+        ).catch((err: unknown) => {
+          const error = err as Error;
+          this.logger.error(
+            `Unhandled error sending mention emails for comment ${comment.id}`,
+            error?.stack || String(err),
+          );
+        });
+      });
+    }
+
+    return formatted;
   }
 
   // ─── UPDATE COMMENT ───────────────────────────────────────────────────────
@@ -378,5 +408,138 @@ export class CommentService {
 
     await this.prisma.commentAttachment.delete({ where: { id: attachmentId } });
     return { success: true };
+  }
+
+  // ─── MENTION NOTIFICATION HANDLER ─────────────────────────────────────────
+
+  private async handleMentionNotifications(
+    commentId: string,
+    taskId: string,
+    commenterId: string,
+    rawMentionUserIds: string[],
+  ) {
+    if (!rawMentionUserIds || rawMentionUserIds.length === 0) return;
+
+    // 1. De-duplicate mention user IDs and exclude self-mention
+    const uniqueMentionUserIds = Array.from(new Set(rawMentionUserIds)).filter(
+      (id) => id !== commenterId,
+    );
+
+    if (uniqueMentionUserIds.length === 0) return;
+
+    // 2. Fetch task with project and workspace context
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        title: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+            workspace: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!task) return;
+
+    // 3. Fetch comment details
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: {
+        id: true,
+        text: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!comment) return;
+
+    const commenterName =
+      `${comment.user.firstName} ${comment.user.lastName ?? ''}`.trim();
+    const frontendBaseUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const commentUrl = `${frontendBaseUrl.replace(/\/$/, '')}/projects/${task.project.id}/details/${taskId}?commentId=${commentId}`;
+
+    // 4. Validate each mentioned user and send email
+    for (const userId of uniqueMentionUserIds) {
+      try {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            isActive: true,
+          },
+        });
+
+        // Validation: exists, active, has email
+        if (
+          !user ||
+          !user.isActive ||
+          !user.email ||
+          user.email.trim() === ''
+        ) {
+          this.logger.warn(
+            `Mention email skipped: user ${userId} not found, inactive, or missing email.`,
+          );
+          continue;
+        }
+
+        // Validation: user has access to task/project (must be active project member)
+        const projectMember = await this.prisma.projectMember.findUnique({
+          where: {
+            projectId_userId: {
+              projectId: task.project.id,
+              userId: user.id,
+            },
+          },
+        });
+
+        if (!projectMember || projectMember.removedAt) {
+          this.logger.warn(
+            `Mention email skipped: user ${userId} (${user.email}) is not an active member of project ${task.project.id}.`,
+          );
+          continue;
+        }
+
+        const recipientName = `${user.firstName} ${user.lastName ?? ''}`.trim();
+
+        await this.emailService.sendCommentMentionEmail({
+          recipientName,
+          recipientEmail: user.email,
+          commenterName,
+          commentText: comment.text,
+          taskName: task.title,
+          taskId: task.id,
+          commentId: comment.id,
+          projectName: task.project.name,
+          workspaceName: task.project.workspace.name,
+          commentCreatedAt: comment.createdAt,
+          commentUrl,
+        });
+      } catch (err: unknown) {
+        const error = err as Error;
+        this.logger.error(
+          `Failed to process mention notification for userId ${userId}, comment ${commentId}: ${error?.message || String(err)}`,
+        );
+      }
+    }
   }
 }

@@ -94,9 +94,11 @@ model Task {
 
   completedAt DateTime?
 
-  estimatedHours Decimal?
+  purchaseMinutes Int?
 
-  actualHours Decimal?
+  estimatedMinutes Int?
+
+  spentMinutes Int?
 
   order Int @default(0)
 
@@ -121,8 +123,11 @@ model Task {
   priority TaskPriority @relation(fields: [priorityId], references: [id])
 
   assignees TaskAssignee[]
+  tags      TaskTag[]
 
   activities TaskActivity[]
+
+  comments Comment[]
 
   @@index([projectId])
   @@index([priorityId])
@@ -187,4 +192,30 @@ model TaskActivity {
   @@index([eventType])
   @@index([userId])
   @@map("task_activities")
+}
+
+model Tag {
+  id          String    @id @default(cuid())
+  name        String
+  color       String    @default("#3B82F6")
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  tasks       TaskTag[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+  @@map("tags")
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@map("task_tags")
 }

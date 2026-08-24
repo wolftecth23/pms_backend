@@ -523,6 +523,7 @@ export class ProjectService {
                 firstName: true,
                 lastName: true,
                 designation: true,
+                email: true,
               },
             },
           },

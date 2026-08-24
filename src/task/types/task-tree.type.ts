@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-
 export type TaskTreeRow = {
   id: string;
   projectId: string;
@@ -17,8 +15,9 @@ export type TaskTreeRow = {
   dueDate: Date | null;
   completedAt: Date | null;
 
-  estimatedHours: Prisma.Decimal | null;
-  actualHours: Prisma.Decimal | null;
+  purchaseMinutes: number | null;
+  estimatedMinutes: number | null;
+  spentMinutes: number | null;
 
   order: number;
 

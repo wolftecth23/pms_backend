@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { computeTaskTimeEffort } from './helpers/task-time.helper';
 import { TaskTreeRow } from './types/task-tree.type';
 
 @Injectable()
@@ -118,10 +119,16 @@ export class TaskService {
     }
 
     /**
-     * Validate Estimated Hours
+     * Validate Task Time & Effort Minutes
      */
-    if (dto.estimatedHours && dto.estimatedHours < 0) {
-      throw new BadRequestException('Estimated hours cannot be negative.');
+    if (dto.purchaseMinutes !== undefined && dto.purchaseMinutes < 0) {
+      throw new BadRequestException('Purchase minutes cannot be negative.');
+    }
+    if (dto.estimatedMinutes !== undefined && dto.estimatedMinutes < 0) {
+      throw new BadRequestException('Estimated minutes cannot be negative.');
+    }
+    if (dto.spentMinutes !== undefined && dto.spentMinutes < 0) {
+      throw new BadRequestException('Spent minutes cannot be negative.');
     }
 
     /**
@@ -155,7 +162,11 @@ export class TaskService {
 
           dueDate: dto.dueDate || null,
 
-          estimatedHours: dto.estimatedHours ?? null,
+          purchaseMinutes: dto.purchaseMinutes ?? null,
+
+          estimatedMinutes: dto.estimatedMinutes ?? null,
+
+          spentMinutes: dto.spentMinutes ?? null,
 
           order: nextOrder,
         },
@@ -189,6 +200,17 @@ export class TaskService {
         });
       }
 
+      // Assign tags if provided
+      if (dto.tagIds && dto.tagIds.length > 0) {
+        await tx.taskTag.createMany({
+          data: dto.tagIds.map((tagId) => ({
+            taskId: task.id,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
       /**
        * Create Activity
        * Uncomment if TaskActivity is implemented
@@ -206,7 +228,10 @@ export class TaskService {
 
       return {
         message: 'Task created successfully.',
-        data: task,
+        data: {
+          ...task,
+          ...computeTaskTimeEffort(task),
+        },
       };
     });
   }
@@ -316,9 +341,14 @@ export class TaskService {
       },
     });
 
+    const mappedTasks = tasks.map((task) => ({
+      ...task,
+      ...computeTaskTimeEffort(task),
+    }));
+
     return {
       message: 'Tasks fetched successfully.',
-      data: tasks,
+      data: mappedTasks,
     };
   }
 
@@ -495,7 +525,9 @@ export class TaskService {
         startDate: true,
         dueDate: true,
 
-        estimatedHours: true,
+        purchaseMinutes: true,
+        estimatedMinutes: true,
+        spentMinutes: true,
 
         project: {
           select: {
@@ -567,18 +599,30 @@ export class TaskService {
       );
     }
 
-    if (dto.estimatedHours !== undefined && dto.estimatedHours < 0) {
-      throw new BadRequestException('Estimated hours cannot be negative.');
+    if (dto.purchaseMinutes !== undefined && dto.purchaseMinutes < 0) {
+      throw new BadRequestException('Purchase minutes cannot be negative.');
+    }
+
+    if (dto.estimatedMinutes !== undefined && dto.estimatedMinutes < 0) {
+      throw new BadRequestException('Estimated minutes cannot be negative.');
+    }
+
+    if (dto.spentMinutes !== undefined && dto.spentMinutes < 0) {
+      throw new BadRequestException('Spent minutes cannot be negative.');
     }
 
     let projectMemberIds: string[] | undefined;
 
-    if (dto.assigneeIds !== undefined && dto.assigneeIds?.length) {
-      projectMemberIds =
-        await this.taskAssigneeServiceValidation.validateTaskAssignees(
-          dto.assigneeIds,
-          task.projectId,
-        );
+    if (dto.assigneeIds !== undefined) {
+      if (dto.assigneeIds?.length) {
+        projectMemberIds =
+          await this.taskAssigneeServiceValidation.validateTaskAssignees(
+            dto.assigneeIds,
+            task.projectId,
+          );
+      } else {
+        projectMemberIds = [];
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -616,8 +660,16 @@ export class TaskService {
         updateData.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
       }
 
-      if (dto.estimatedHours !== undefined) {
-        updateData.estimatedHours = dto.estimatedHours;
+      if (dto.purchaseMinutes !== undefined) {
+        updateData.purchaseMinutes = dto.purchaseMinutes;
+      }
+
+      if (dto.estimatedMinutes !== undefined) {
+        updateData.estimatedMinutes = dto.estimatedMinutes;
+      }
+
+      if (dto.spentMinutes !== undefined) {
+        updateData.spentMinutes = dto.spentMinutes;
       }
 
       const updatedTask = await tx.task.update({
@@ -660,41 +712,44 @@ export class TaskService {
         },
       });
 
-      // Remove members not present in the new list
-      await tx.taskAssignee.updateMany({
-        where: {
-          taskId: id,
-          projectMemberId: {
-            notIn: projectMemberIds,
+      // Update assignees only if provided in payload
+      if (dto.assigneeIds !== undefined && projectMemberIds !== undefined) {
+        // Remove members not present in the new list
+        await tx.taskAssignee.updateMany({
+          where: {
+            taskId: id,
+            projectMemberId: {
+              notIn: projectMemberIds,
+            },
+            removedAt: null,
           },
-          removedAt: null,
-        },
-        data: {
-          removedAt: new Date().toISOString(),
-          removedById: context.userId,
-        },
-      });
+          data: {
+            removedAt: new Date().toISOString(),
+            removedById: context.userId,
+          },
+        });
 
-      if (projectMemberIds?.length) {
-        for (const projectMemberId of projectMemberIds) {
-          await tx.taskAssignee.upsert({
-            where: {
-              taskId_projectMemberId: {
+        if (projectMemberIds.length) {
+          for (const projectMemberId of projectMemberIds) {
+            await tx.taskAssignee.upsert({
+              where: {
+                taskId_projectMemberId: {
+                  taskId: id,
+                  projectMemberId,
+                },
+              },
+              update: {
+                removedAt: null,
+                removedById: null,
+                assignedById: context.userId,
+              },
+              create: {
                 taskId: id,
                 projectMemberId,
+                assignedById: context.userId,
               },
-            },
-            update: {
-              removedAt: null,
-              removedById: null,
-              assignedById: context.userId,
-            },
-            create: {
-              taskId: id,
-              projectMemberId,
-              assignedById: context.userId,
-            },
-          });
+            });
+          }
         }
       }
 
@@ -708,9 +763,23 @@ export class TaskService {
     });
     */
 
+      // Update tags if provided (replace all existing tags)
+      if (dto.tagIds !== undefined) {
+        await tx.taskTag.deleteMany({ where: { taskId: id } });
+        if (dto.tagIds.length > 0) {
+          await tx.taskTag.createMany({
+            data: dto.tagIds.map((tagId) => ({ taskId: id, tagId })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
       return {
         message: 'Task updated successfully.',
-        data: updatedTask,
+        data: {
+          ...updatedTask,
+          ...computeTaskTimeEffort(updatedTask),
+        },
       };
     });
   }
@@ -759,6 +828,28 @@ export class TaskService {
     }
 
     const taskIds = tasks.map((task) => task.id || '');
+
+    // Fetch tags for all tasks in the tree
+    const taskTags = await this.prisma.taskTag.findMany({
+      where: { taskId: { in: taskIds } },
+      select: {
+        taskId: true,
+        tag: { select: { id: true, name: true, color: true } },
+      },
+    });
+
+    const tagsMap = new Map<
+      string,
+      { id: string; name: string; color: string }[]
+    >();
+    for (const tt of taskTags) {
+      const existing = tagsMap.get(tt.taskId);
+      if (existing) {
+        existing.push(tt.tag);
+      } else {
+        tagsMap.set(tt.taskId, [tt.tag]);
+      }
+    }
 
     const taskAssignees = await this.prisma.taskAssignee.findMany({
       where: {
@@ -810,6 +901,7 @@ export class TaskService {
 
     type TaskNode = TaskTreeRow & {
       assignees: (typeof taskAssignees)[number][];
+      tags: { id: string; name: string; color: string }[];
       subTasks: TaskNode[];
     };
 
@@ -818,7 +910,9 @@ export class TaskService {
     for (const task of tasks) {
       taskMap.set(task.id, {
         ...task,
+        ...computeTaskTimeEffort(task),
         assignees: assigneesMap.get(task.id) ?? [],
+        tags: tagsMap.get(task.id) ?? [],
         subTasks: [],
       });
     }

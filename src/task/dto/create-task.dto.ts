@@ -2,10 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
+  IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 
 export class CreateTaskDto {
@@ -70,6 +71,28 @@ export class CreateTaskDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  estimatedHours?: number;
+  @IsInt()
+  @Min(0)
+  purchaseMinutes?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  estimatedMinutes?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  spentMinutes?: number;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Array of Tag IDs to assign to the task',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tagIds?: string[];
 }

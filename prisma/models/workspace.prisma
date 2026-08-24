@@ -15,6 +15,7 @@ model Workspace {
 
   projects        Project[]
   workspaceMember WorkspaceMember[]
+  tags            Tag[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

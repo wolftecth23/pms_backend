@@ -57,6 +57,7 @@ temp/
 .temp/
 .cache/
 .cache-loader/
+uploads/
 
 # ==========================================================
 # OS Files
@@ -163,3 +164,4 @@ nx-cache/
 !prisma/schema.prisma
 !prisma.config.ts
 
+Project_Management_SaaS_Database_Documentation.md

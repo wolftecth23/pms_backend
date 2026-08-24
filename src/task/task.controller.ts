@@ -65,7 +65,7 @@ export class TaskController {
   }
 
   @Patch(':id')
-  @RequirePermissions('task.update')
+  @RequireAnyPermissions('task.update', 'task.view')
   @ApiOperation({ summary: 'Update a task' })
   update(
     @Param('id') id: string,

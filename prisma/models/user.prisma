@@ -25,6 +25,10 @@ model User {
   task         Task[]
   taskActivity TaskActivity[]
 
+  comments        Comment[]
+  commentReaction CommentReaction[]
+  commentMention  CommentMention[]
+
   projectMember          ProjectMember[] @relation("ProjectMembership")
   projectMemberRemovedBy ProjectMember[] @relation("ProjectMemberRemovedBy")
 

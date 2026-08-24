@@ -1,0 +1,74 @@
+model Comment {
+  id String @id @default(cuid())
+
+  taskId String
+  userId String
+
+  text     String
+  isEdited Boolean @default(false)
+
+  scheduledFor   DateTime?
+  scheduleStatus String?
+
+  replyToId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  replyTo Comment?  @relation("CommentQuote", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies Comment[] @relation("CommentQuote")
+
+  attachments CommentAttachment[]
+  reactions   CommentReaction[]
+  mentions    CommentMention[]
+
+  @@index([taskId, createdAt])
+  @@index([replyToId])
+  @@index([scheduledFor, scheduleStatus])
+  @@map("comments")
+}
+
+model CommentAttachment {
+  id        String   @id @default(cuid())
+  commentId String
+  name      String
+  size      Int
+  mimeType  String
+  url       String
+
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("comment_attachments")
+}
+
+model CommentReaction {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  emoji     String
+
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([commentId, userId, emoji])
+  @@map("comment_reactions")
+}
+
+model CommentMention {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+  @@map("comment_mentions")
+}

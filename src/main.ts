@@ -1,8 +1,11 @@
+import multipart from '@fastify/multipart';
+import staticFiles from '@fastify/static';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import * as path from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -12,6 +15,22 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter(),
   );
+
+  // Register @fastify/multipart for handling file uploads
+  // attachFieldsToBody: false means we process parts manually via req.parts()
+  await app.register(multipart, {
+    limits: {
+      fileSize: 25 * 1024 * 1024, // 25 MB
+      files: 10, // Max 10 files per request
+    },
+  });
+
+  // Serve uploaded files statically at /uploads/*
+  const uploadsDir = path.resolve(process.cwd(), 'uploads');
+  await app.register(staticFiles, {
+    root: uploadsDir,
+    prefix: '/uploads/',
+  });
 
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
@@ -27,6 +46,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Server running at http://localhost:${port}`);
+  console.log(`📁 Uploads served at http://localhost:${port}/uploads/`);
 }
 
 bootstrap()

@@ -5,6 +5,7 @@ export function formatComment(comment: any, currentUserId: string) {
     text: comment.text,
     isEdited: comment.isEdited,
     createdAt: comment.createdAt,
+    sentAt: comment.sentAt,
     updatedAt: comment.updatedAt,
 
     user: {

@@ -29,6 +29,9 @@ model User {
   commentReaction CommentReaction[]
   commentMention  CommentMention[]
 
+  taskAttachments    TaskAttachment[]
+  projectAttachments ProjectAttachment[]
+
   projectMember          ProjectMember[] @relation("ProjectMembership")
   projectMemberRemovedBy ProjectMember[] @relation("ProjectMemberRemovedBy")
 

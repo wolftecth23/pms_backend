@@ -60,6 +60,7 @@ model Project {
   tasks           Task[]
   taskStatus      TaskStatus[]
   projectActivity ProjectActivity[]
+  attachments     ProjectAttachment[]
 
   @@unique([workspaceId, projectCode])
   @@index([workspaceId])
@@ -128,4 +129,23 @@ model ProjectActivity {
   nextActivities ProjectActivity[] @relation("ActivityChain")
 
   @@map("project_activities")
+}
+
+model ProjectAttachment {
+  id           String   @id @default(cuid())
+  projectId    String
+  uploadedById String
+
+  name     String
+  size     Int
+  mimeType String
+  url      String
+
+  createdAt DateTime @default(now())
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedById], references: [id])
+
+  @@index([projectId])
+  @@map("project_attachments")
 }

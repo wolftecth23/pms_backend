@@ -62,7 +62,7 @@ export class CommentService {
     if (!parsedLimit) {
       const comments = await this.prisma.comment.findMany({
         where,
-        orderBy: { createdAt: 'asc' },
+        orderBy: { sentAt: 'asc' },
         include: COMMENT_INCLUDE,
       });
 
@@ -82,7 +82,7 @@ export class CommentService {
       where,
       take: parsedLimit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      orderBy: { createdAt: isDescMode ? 'desc' : 'asc' },
+      orderBy: { sentAt: isDescMode ? 'desc' : 'asc' },
       include: COMMENT_INCLUDE,
     });
 
@@ -359,11 +359,55 @@ export class CommentService {
 
     const comment = await this.prisma.comment.update({
       where: { id: commentId },
-      data: { scheduledFor: null, scheduleStatus: null },
+      data: { scheduledFor: null, scheduleStatus: null, sentAt: new Date() },
       include: COMMENT_INCLUDE,
     });
 
     return formatComment(comment, currentUserId);
+  }
+
+  // ─── PUBLISH SCHEDULED COMMENT ────────────────────────────────────────────
+
+  async publishComment(commentId: string) {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        mentions: true,
+      },
+    });
+
+    if (!comment || comment.scheduleStatus !== SCHEDULE_STATUS.PENDING) {
+      return;
+    }
+
+    const publishedComment = await this.prisma.comment.update({
+      where: { id: commentId },
+      data: {
+        scheduleStatus: SCHEDULE_STATUS.SENT,
+        sentAt: new Date(),
+      },
+      include: COMMENT_INCLUDE,
+    });
+
+    if (comment.mentions.length > 0) {
+      const mentionUserIds = comment.mentions.map((m) => m.userId);
+      setImmediate(() => {
+        this.handleMentionNotifications(
+          publishedComment.id,
+          publishedComment.taskId,
+          publishedComment.userId,
+          mentionUserIds,
+        ).catch((err: unknown) => {
+          const error = err as Error;
+          this.logger.error(
+            `Unhandled error sending mention emails for published comment ${publishedComment.id}`,
+            error?.stack || String(err),
+          );
+        });
+      });
+    }
+
+    return formatComment(publishedComment, publishedComment.userId);
   }
 
   // ─── ADD ATTACHMENT ───────────────────────────────────────────────────────

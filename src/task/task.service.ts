@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../auth/auth.controller';
 import { ContextService } from '../common/context/context.service';
+import { StorageService, UploadedFileResult } from '../common/storage/storage.service';
 import { TaskAssigneeServiceValidation } from '../common/validation/task-assignee.service';
 import { TaskParentServiceValidation } from '../common/validation/task-parent.service';
 import { TaskPriorityServiceValidation } from '../common/validation/task-priority.service';
@@ -27,6 +28,7 @@ export class TaskService {
     private readonly taskPriorityServiceValidation: TaskPriorityServiceValidation,
     private readonly taskParentServiceValidation: TaskParentServiceValidation,
     private readonly taskAssigneeServiceValidation: TaskAssigneeServiceValidation,
+    private readonly storageService: StorageService,
   ) {}
 
   async getNextOrder(projectId: string): Promise<number> {
@@ -936,9 +938,167 @@ export class TaskService {
       throw new NotFoundException('Task not found.');
     }
 
+    const attachments = await this.prisma.taskAttachment.findMany({
+      where: { taskId: id },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     return {
       message: 'Task fetched successfully.',
-      data: rootTask,
+      data: {
+        ...rootTask,
+        attachments,
+      },
+    };
+  }
+
+  async getTaskAttachments(taskId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null,
+        project: {
+          deletedAt: null,
+          organizationId: context.organizationId,
+          workspaceId: context.workspaceId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    const attachments = await this.prisma.taskAttachment.findMany({
+      where: { taskId },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: attachments,
+    };
+  }
+
+  async addTaskAttachment(
+    taskId: string,
+    userId: string,
+    file: UploadedFileResult,
+    request: AuthRequest,
+  ) {
+    const context = await this.contextService.resolveContext(request);
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        deletedAt: null,
+        project: {
+          deletedAt: null,
+          organizationId: context.organizationId,
+          workspaceId: context.workspaceId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    const attachment = await this.prisma.taskAttachment.create({
+      data: {
+        taskId,
+        uploadedById: userId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.mimeType,
+        url: file.url,
+      },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Attachment uploaded successfully.',
+      data: attachment,
+    };
+  }
+
+  async deleteTaskAttachment(attachmentId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const attachment = await this.prisma.taskAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        task: {
+          include: {
+            project: true,
+          },
+        },
+      },
+    });
+
+    if (
+      !attachment ||
+      attachment.task.deletedAt ||
+      attachment.task.project.deletedAt
+    ) {
+      throw new NotFoundException('Attachment not found.');
+    }
+
+    if (
+      attachment.task.project.organizationId !== context.organizationId ||
+      attachment.task.project.workspaceId !== context.workspaceId
+    ) {
+      throw new ForbiddenException('You do not have access to this resource.');
+    }
+
+    // Delete file from disk
+    this.storageService.deleteFile(attachment.url);
+
+    // Delete from database
+    await this.prisma.taskAttachment.delete({
+      where: { id: attachmentId },
+    });
+
+    return {
+      success: true,
+      message: 'Attachment deleted successfully.',
     };
   }
 

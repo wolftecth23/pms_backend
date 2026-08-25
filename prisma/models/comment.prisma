@@ -9,6 +9,7 @@ model Comment {
 
   scheduledFor   DateTime?
   scheduleStatus String?
+  sentAt         DateTime  @default(now())
 
   replyToId String?
 
@@ -26,6 +27,7 @@ model Comment {
   mentions    CommentMention[]
 
   @@index([taskId, createdAt])
+  @@index([taskId, sentAt])
   @@index([replyToId])
   @@index([scheduledFor, scheduleStatus])
   @@map("comments")

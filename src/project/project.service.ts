@@ -10,6 +10,7 @@ import type { AuthRequest } from '../auth/auth.controller';
 import { ProjectAccessService } from '../common/access/project-access.service';
 import { ContextService } from '../common/context/context.service';
 import { CodeGeneratorService } from '../common/generator/code-generator.service';
+import { StorageService, UploadedFileResult } from '../common/storage/storage.service';
 import { ProjectStatusServiceValidation } from '../common/validation/project-status.service';
 import { TaskStatusServiceValidation } from '../common/validation/task-status.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +39,8 @@ export class ProjectService {
     private readonly projectStatusServiceValidation: ProjectStatusServiceValidation,
 
     private readonly taskStatusServiceValidation: TaskStatusServiceValidation,
+
+    private readonly storageService: StorageService,
   ) {}
 
   // create(createProjectDto: CreateProjectDto) {
@@ -873,4 +876,131 @@ export class ProjectService {
   //     include: {},
   //   });
   // }
+
+  // ─── PROJECT ATTACHMENTS ───────────────────────────────────────────────────
+
+  async getProjectAttachments(projectId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        deletedAt: null,
+        organizationId: context.organizationId,
+        workspaceId: context.workspaceId,
+      },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const attachments = await this.prisma.projectAttachment.findMany({
+      where: { projectId },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      data: attachments,
+    };
+  }
+
+  async addProjectAttachment(
+    projectId: string,
+    userId: string,
+    file: UploadedFileResult,
+    request: AuthRequest,
+  ) {
+    const context = await this.contextService.resolveContext(request);
+
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        deletedAt: null,
+        organizationId: context.organizationId,
+        workspaceId: context.workspaceId,
+      },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const attachment = await this.prisma.projectAttachment.create({
+      data: {
+        projectId,
+        uploadedById: userId,
+        name: file.name,
+        size: file.size,
+        mimeType: file.mimeType,
+        url: file.url,
+      },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Attachment uploaded successfully.',
+      data: attachment,
+    };
+  }
+
+  async deleteProjectAttachment(attachmentId: string, request: AuthRequest) {
+    const context = await this.contextService.resolveContext(request);
+
+    const attachment = await this.prisma.projectAttachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!attachment || attachment.project.deletedAt) {
+      throw new NotFoundException('Attachment not found.');
+    }
+
+    if (
+      attachment.project.organizationId !== context.organizationId ||
+      attachment.project.workspaceId !== context.workspaceId
+    ) {
+      throw new ForbiddenException('You do not have access to this resource.');
+    }
+
+    // Delete file from disk
+    this.storageService.deleteFile(attachment.url);
+
+    // Delete from database
+    await this.prisma.projectAttachment.delete({
+      where: { id: attachmentId },
+    });
+
+    return {
+      success: true,
+      message: 'Attachment deleted successfully.',
+    };
+  }
 }

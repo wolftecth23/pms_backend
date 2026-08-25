@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { CommentService } from './comment.service';
 
 @Injectable()
 export class CommentScheduler {
   private readonly logger = new Logger(CommentScheduler.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commentService: CommentService,
+  ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async publishScheduledComments() {
@@ -23,14 +27,11 @@ export class CommentScheduler {
         return;
       }
 
-      const ids = dueComments.map((c) => c.id);
+      for (const comment of dueComments) {
+        await this.commentService.publishComment(comment.id);
+      }
 
-      await this.prisma.comment.updateMany({
-        where: { id: { in: ids } },
-        data: { scheduleStatus: 'sent' },
-      });
-
-      this.logger.log(`Published ${ids.length} scheduled comment(s).`);
+      this.logger.log(`Published ${dueComments.length} scheduled comment(s).`);
     } catch (error) {
       this.logger.error('Error publishing scheduled comments:', error);
     }

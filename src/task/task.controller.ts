@@ -21,8 +21,10 @@ import {
   RequireAnyPermissions,
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
+import { RequireProjectPermissions } from '../auth/decorators/project-permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
+import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard';
 import { StorageService } from '../common/storage/storage.service';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -31,7 +33,7 @@ import { TaskService } from './task.service';
 
 @ApiTags('tasks')
 @Controller('tasks')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ProjectPermissionGuard)
 export class TaskController {
   constructor(
     private readonly taskService: TaskService,
@@ -49,6 +51,7 @@ export class TaskController {
 
   @Post()
   @RequirePermissions('task.create')
+  @RequireProjectPermissions('task.create')
   @ApiOperation({ summary: 'Create a new task' })
   create(@Body() dto: CreateTaskDto, @Request() request: AuthRequest) {
     return this.taskService.create(dto, request);
@@ -56,6 +59,7 @@ export class TaskController {
 
   @Get()
   @RequirePermissions('task.view')
+  @RequireProjectPermissions('task.view')
   @ApiOperation({ summary: 'Get project tasks' })
   findByProject(
     @Query('projectId') projectId: string,
@@ -66,6 +70,7 @@ export class TaskController {
 
   @Patch('change-status')
   @RequireAnyPermissions('task.change_status', 'task.update')
+  @RequireProjectPermissions('task.change_status')
   @ApiOperation({ summary: 'Change task status' })
   changeStatus(
     @Body() dto: ChangeTaskStatusDto,
@@ -76,6 +81,7 @@ export class TaskController {
 
   @Patch(':id')
   @RequireAnyPermissions('task.update', 'task.view')
+  @RequireProjectPermissions('task.update')
   @ApiOperation({ summary: 'Update a task' })
   update(
     @Param('id') id: string,
@@ -87,6 +93,7 @@ export class TaskController {
 
   @Get(':id')
   @RequirePermissions('task.view')
+  @RequireProjectPermissions('task.view')
   @ApiOperation({ summary: 'Get a task by id' })
   findOne(@Param('id') id: string, @Request() request: AuthRequest) {
     return this.taskService.findOne(id, request);
@@ -96,6 +103,7 @@ export class TaskController {
 
   @Get(':taskId/attachments')
   @RequirePermissions('task.view')
+  @RequireProjectPermissions('task.view')
   @ApiOperation({ summary: 'Get all attachments for a task' })
   getTaskAttachments(
     @Param('taskId') taskId: string,
@@ -106,6 +114,7 @@ export class TaskController {
 
   @Post(':taskId/attachments')
   @RequirePermissions('task.update')
+  @RequireProjectPermissions('task.update')
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload an attachment to a task' })
@@ -155,6 +164,7 @@ export class TaskController {
 
   @Delete(':taskId/attachments/:attachmentId')
   @RequirePermissions('task.update')
+  @RequireProjectPermissions('task.update')
   @ApiOperation({ summary: 'Delete a task attachment' })
   deleteTaskAttachment(
     @Param('attachmentId') attachmentId: string,

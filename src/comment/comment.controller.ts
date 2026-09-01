@@ -22,7 +22,9 @@ import {
 } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
 import * as authController from '../auth/auth.controller';
+import { RequireProjectPermissions } from '../auth/decorators/project-permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard';
 import { StorageService } from '../common/storage/storage.service';
 import { CommentService } from './comment.service';
 import { AttachmentDto, CreateCommentDto } from './dto/create-comment.dto';
@@ -38,7 +40,7 @@ function getUserId(req: authController.AuthRequest): string {
 
 @ApiTags('comments')
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectPermissionGuard)
 export class CommentController {
   constructor(
     private readonly commentService: CommentService,
@@ -48,6 +50,7 @@ export class CommentController {
   // ─── GET ALL COMMENTS (FLAT LIST) ─────────────────────────────────────────
 
   @Get('tasks/:taskId/comments')
+  @RequireProjectPermissions('comment.view')
   @ApiOperation({
     summary: 'Get all comments for a task in flat chronological order',
   })
@@ -73,6 +76,7 @@ export class CommentController {
   // ─── GET SINGLE COMMENT ───────────────────────────────────────────────────
 
   @Get('comments/:commentId')
+  @RequireProjectPermissions('comment.view')
   @ApiOperation({ summary: 'Get a single comment by ID' })
   getComment(
     @Param('commentId') commentId: string,
@@ -84,6 +88,7 @@ export class CommentController {
   // ─── CREATE COMMENT (JSON or multipart with files) ────────────────────────
 
   @Post('tasks/:taskId/comments')
+  @RequireProjectPermissions('comment.create')
   @UseGuards(ProjectMemberGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data', 'application/json')
@@ -186,6 +191,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── UPDATE COMMENT ───────────────────────────────────────────────────────
 
   @Patch('comments/:commentId')
+  @RequireProjectPermissions('comment.update')
   @UseGuards(CommentOwnerGuard)
   @ApiOperation({ summary: 'Update comment text and mentions (owner only)' })
   updateComment(
@@ -199,6 +205,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── DELETE COMMENT ───────────────────────────────────────────────────────
 
   @Delete('comments/:commentId')
+  @RequireProjectPermissions('comment.delete')
   @UseGuards(CommentOwnerGuard)
   @ApiOperation({
     summary: 'Delete a comment and its attachments (owner only)',
@@ -210,6 +217,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── TOGGLE REACTION ──────────────────────────────────────────────────────
 
   @Post('comments/:commentId/reactions')
+  @RequireProjectPermissions('comment.view')
   @UseGuards(ProjectMemberGuard)
   @ApiOperation({ summary: 'Toggle an emoji reaction on a comment' })
   toggleReaction(
@@ -227,6 +235,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── SCHEDULE COMMENT ─────────────────────────────────────────────────────
 
   @Post('comments/:commentId/schedule')
+  @RequireProjectPermissions('comment.create')
   @UseGuards(CommentOwnerGuard)
   @ApiOperation({
     summary: 'Schedule a comment for future publication (owner only)',
@@ -246,6 +255,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── CANCEL SCHEDULE ──────────────────────────────────────────────────────
 
   @Delete('comments/:commentId/schedule')
+  @RequireProjectPermissions('comment.delete')
   @UseGuards(CommentOwnerGuard)
   @ApiOperation({ summary: 'Cancel a pending scheduled comment (owner only)' })
   cancelSchedule(
@@ -258,6 +268,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── ADD ATTACHMENT (post-creation) ──────────────────────────────────────
 
   @Post('comments/:commentId/attachments')
+  @RequireProjectPermissions('comment.update')
   @UseGuards(ProjectMemberGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -294,9 +305,11 @@ All uploaded files are saved and their metadata is stored as comment attachments
   // ─── DELETE ATTACHMENT ────────────────────────────────────────────────────
 
   @Delete('comments/:commentId/attachments/:attachmentId')
+  @RequireProjectPermissions('comment.delete')
   @UseGuards(CommentOwnerGuard)
   @ApiOperation({ summary: 'Remove an attachment from a comment (owner only)' })
   deleteAttachment(@Param('attachmentId') attachmentId: string) {
     return this.commentService.deleteAttachment(attachmentId);
   }
 }
+

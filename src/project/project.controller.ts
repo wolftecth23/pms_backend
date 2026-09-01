@@ -19,8 +19,10 @@ import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
 import type { AuthRequest } from '../auth/auth.controller';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { RequireProjectPermissions } from '../auth/decorators/project-permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
+import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard';
 import { StorageService } from '../common/storage/storage.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -28,7 +30,7 @@ import { ProjectService } from './project.service';
 
 @ApiTags('projects')
 @Controller('projects')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ProjectPermissionGuard)
 export class ProjectController {
   constructor(
     private readonly projectService: ProjectService,
@@ -73,6 +75,7 @@ export class ProjectController {
 
   @Patch(':id')
   @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
   @ApiOperation({ summary: 'Update a project' })
   update(
     @Param('id') id: string,
@@ -82,10 +85,19 @@ export class ProjectController {
     return this.projectService.update(id, dto, request);
   }
 
+  @Delete(':id')
+  @RequirePermissions('project.delete')
+  @RequireProjectPermissions('project.delete')
+  @ApiOperation({ summary: 'Delete a project' })
+  remove(@Param('id') id: string, @Request() request: AuthRequest) {
+    return this.projectService.remove(id, request);
+  }
+
   // ─── PROJECT ATTACHMENTS ─────────────────────────────────────────────────
 
   @Get(':projectId/attachments')
   @RequirePermissions('project.view')
+  @RequireProjectPermissions('project.view')
   @ApiOperation({ summary: 'Get all attachments for a project' })
   getProjectAttachments(
     @Param('projectId') projectId: string,
@@ -96,6 +108,7 @@ export class ProjectController {
 
   @Post(':projectId/attachments')
   @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload an attachment to a project' })
@@ -145,6 +158,7 @@ export class ProjectController {
 
   @Delete(':projectId/attachments/:attachmentId')
   @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
   @ApiOperation({ summary: 'Delete a project attachment' })
   deleteProjectAttachment(
     @Param('attachmentId') attachmentId: string,

@@ -5,12 +5,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, StatusScope } from '@prisma/client';
 import type { AuthRequest } from '../auth/auth.controller';
 import { ProjectAccessService } from '../common/access/project-access.service';
+import { ProjectPermissionService } from '../common/access/project-permission.service';
 import { ContextService } from '../common/context/context.service';
 import { CodeGeneratorService } from '../common/generator/code-generator.service';
-import { StorageService, UploadedFileResult } from '../common/storage/storage.service';
+import {
+  StorageService,
+  UploadedFileResult,
+} from '../common/storage/storage.service';
 import { ProjectStatusServiceValidation } from '../common/validation/project-status.service';
 import { TaskStatusServiceValidation } from '../common/validation/task-status.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,6 +35,8 @@ export class ProjectService {
     private readonly prisma: PrismaService,
 
     private readonly projectAccessService: ProjectAccessService,
+
+    private readonly projectPermissionService: ProjectPermissionService,
 
     private readonly contextService: ContextService,
 
@@ -200,13 +206,46 @@ export class ProjectService {
         },
       });
 
-      if (validUserIds.size) {
-        await tx.projectMember.createMany({
-          data: [...validUserIds].map((userId) => ({
+      // Find Project Owner and default roles (PROJECT-scoped)
+      const ownerRole = await tx.role.findFirst({
+        where: {
+          name: 'Project Owner',
+          scope: StatusScope.PROJECT,
+          isSystem: true,
+        },
+      });
+
+      const teamMemberRole = await tx.role.findFirst({
+        where: {
+          name: 'Team Member',
+          scope: StatusScope.PROJECT,
+          isSystem: true,
+        },
+      });
+
+      const allUserIds = [...validUserIds];
+      if (!allUserIds.includes(context.userId)) {
+        allUserIds.push(context.userId);
+      }
+
+      const memberRecords = allUserIds.map((userId) => {
+        if (userId === context.userId) {
+          return {
             projectId: project.id,
             userId,
-            // projectRoleId: dto.projectRoleId || null,
-          })),
+            projectRoleId: ownerRole?.id ?? null,
+          };
+        }
+        return {
+          projectId: project.id,
+          userId,
+          projectRoleId: teamMemberRole?.id ?? null,
+        };
+      });
+
+      if (memberRecords.length) {
+        await tx.projectMember.createMany({
+          data: memberRecords,
           skipDuplicates: true,
         });
       }
@@ -405,9 +444,122 @@ export class ProjectService {
 
     const totalPages = Math.ceil(total / limit);
 
+    if (projects.length === 0) {
+      return {
+        data: {
+          data: [],
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNext: false,
+            hasPrevious: page > 1,
+          },
+        },
+      };
+    }
+
+    const projectIds = projects.map((p) => p.id);
+
+    const [closedStatuses, taskStats] = await Promise.all([
+      this.prisma.taskStatus.findMany({
+        where: {
+          OR: [
+            { isClosed: true },
+            { name: { in: ['Done', 'Completed'], mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      }),
+      this.prisma.task.groupBy({
+        by: ['projectId'],
+        where: {
+          projectId: { in: projectIds },
+          deletedAt: null,
+        },
+        _count: {
+          id: true,
+        },
+        _sum: {
+          estimatedMinutes: true,
+          spentMinutes: true,
+        },
+      }),
+    ]);
+
+    const closedStatusIds = closedStatuses.map((s) => s.id);
+
+    const completedTaskStats =
+      closedStatusIds.length > 0
+        ? await this.prisma.task.groupBy({
+            by: ['projectId'],
+            where: {
+              projectId: { in: projectIds },
+              deletedAt: null,
+              taskStatusId: { in: closedStatusIds },
+            },
+            _count: {
+              id: true,
+            },
+          })
+        : [];
+
+    const statsMap = new Map<
+      string,
+      {
+        totalTasks: number;
+        completedTasks: number;
+        estimatedMinutes: number;
+        spentMinutes: number;
+      }
+    >();
+
+    for (const pId of projectIds) {
+      statsMap.set(pId, {
+        totalTasks: 0,
+        completedTasks: 0,
+        estimatedMinutes: 0,
+        spentMinutes: 0,
+      });
+    }
+
+    for (const stat of taskStats) {
+      const item = statsMap.get(stat.projectId);
+      if (item) {
+        item.totalTasks = stat._count.id;
+        item.estimatedMinutes = stat._sum.estimatedMinutes ?? 0;
+        item.spentMinutes = stat._sum.spentMinutes ?? 0;
+      }
+    }
+
+    for (const cStat of completedTaskStats) {
+      const item = statsMap.get(cStat.projectId);
+      if (item) {
+        item.completedTasks = cStat._count.id;
+      }
+    }
+
+    const enrichedProjects = projects.map((project) => {
+      const metrics = statsMap.get(project.id) ?? {
+        totalTasks: 0,
+        completedTasks: 0,
+        estimatedMinutes: 0,
+        spentMinutes: 0,
+      };
+
+      return {
+        ...project,
+        totalTasks: metrics.totalTasks,
+        completedTasks: metrics.completedTasks,
+        estimatedMinutes: metrics.estimatedMinutes,
+        spentMinutes: metrics.spentMinutes,
+      };
+    });
+
     return {
       data: {
-        data: projects,
+        data: enrichedProjects,
         pagination: {
           total,
           page,
@@ -519,13 +671,16 @@ export class ProjectService {
           select: {
             id: true,
             joinedAt: true,
-
+            projectRole: {
+              select: {
+                name: true,
+              },
+            },
             user: {
               select: {
                 id: true,
                 firstName: true,
                 lastName: true,
-                designation: true,
                 email: true,
               },
             },
@@ -549,9 +704,70 @@ export class ProjectService {
         project.id,
       );
 
+    const myMember = await this.projectPermissionService.getProjectMember(
+      context.userId,
+      project.id,
+    );
+
+    const myRole = myMember?.projectRole
+      ? {
+          id: myMember.projectRole.id,
+          name: myMember.projectRole.name,
+          scope: myMember.projectRole.scope,
+        }
+      : null;
+
+    const [closedStatuses, taskStats] = await Promise.all([
+      this.prisma.taskStatus.findMany({
+        where: {
+          OR: [
+            { isClosed: true },
+            { name: { in: ['Done', 'Completed'], mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true },
+      }),
+      this.prisma.task.aggregate({
+        where: {
+          projectId: project.id,
+          deletedAt: null,
+        },
+        _count: {
+          id: true,
+        },
+        _sum: {
+          estimatedMinutes: true,
+          spentMinutes: true,
+        },
+      }),
+    ]);
+
+    const closedStatusIds = closedStatuses.map((s) => s.id);
+    const completedTasks =
+      closedStatusIds.length > 0
+        ? await this.prisma.task.count({
+            where: {
+              projectId: project.id,
+              deletedAt: null,
+              taskStatusId: { in: closedStatusIds },
+            },
+          })
+        : 0;
+
+    const permissions =
+      myMember?.projectRole?.permissions
+        ?.map((rp) => rp.permission?.code)
+        .filter(Boolean) ?? [];
+
     return {
       ...project,
+      totalTasks: taskStats._count.id ?? 0,
+      completedTasks,
+      estimatedMinutes: taskStats._sum.estimatedMinutes ?? 0,
+      spentMinutes: taskStats._sum.spentMinutes ?? 0,
       taskStatuses,
+      myRole,
+      permissions,
     };
   }
 

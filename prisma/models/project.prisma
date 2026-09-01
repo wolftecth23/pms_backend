@@ -57,6 +57,7 @@ model Project {
   status ProjectStatus @relation(fields: [statusId], references: [id])
 
   members         ProjectMember[]
+  roles           Role[]
   tasks           Task[]
   taskStatus      TaskStatus[]
   projectActivity ProjectActivity[]

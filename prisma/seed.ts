@@ -18,6 +18,7 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
+  // await cleanAllProjects(prisma);
   await seedProjectStatus(prisma);
   await seedTaskPriority(prisma);
   await seedTaskStatus(prisma);

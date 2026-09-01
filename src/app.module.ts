@@ -11,6 +11,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ProjectMemberModule } from './project-member/project-member.module';
 import { ProjectStatusModule } from './project-status/project-status.module';
 import { ProjectModule } from './project/project.module';
+import { RoleModule } from './role/role.module';
 import { SyncModule } from './sync/sync.module';
 import { TagModule } from './tag/tag.module';
 import { TaskModule } from './task/task.module';
@@ -37,6 +38,7 @@ import { WorkspaceMemberModule } from './workspace-member/workspace-member.modul
     ProjectStatusModule,
     WorkspaceMemberModule,
     TagModule,
+    RoleModule,
   ],
   controllers: [AppController],
   providers: [AppService],

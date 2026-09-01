@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OrganizationAccessService } from './access/organization-access.service';
 import { ProjectAccessService } from './access/project-access.service';
+import { ProjectPermissionService } from './access/project-permission.service';
 import { WorkspaceAccessService } from './access/workspace-access.service';
 import { ContextService } from './context/context.service';
 import { CodeGeneratorService } from './generator/code-generator.service';
@@ -19,6 +20,7 @@ import { TaskStatusServiceValidation } from './validation/task-status.service';
     WorkspaceAccessService,
     OrganizationAccessService,
     ProjectAccessService,
+    ProjectPermissionService,
     ProjectStatusServiceValidation,
     CodeGeneratorService,
     TaskStatusServiceValidation,
@@ -31,6 +33,7 @@ import { TaskStatusServiceValidation } from './validation/task-status.service';
     WorkspaceAccessService,
     OrganizationAccessService,
     ProjectAccessService,
+    ProjectPermissionService,
     ProjectStatusServiceValidation,
     CodeGeneratorService,
     TaskStatusServiceValidation,

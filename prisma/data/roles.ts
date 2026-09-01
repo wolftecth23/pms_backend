@@ -80,3 +80,41 @@ export function resolveRole(designation: string): DefaultRole {
   // Everyone else
   return DefaultRole.TEAM_MEMBER;
 }
+
+// ─── PROJECT-SCOPED ROLES ────────────────────────────────────────────────────
+
+export const DEFAULT_PROJECT_ROLES = [
+  {
+    name: 'Project Owner',
+    description: 'Full control over the project.',
+    isSystem: true,
+  },
+  {
+    name: 'Project Manager',
+    description: 'Manages project execution and members.',
+    isSystem: true,
+  },
+  {
+    name: 'Team Lead',
+    description: 'Leads task execution and team activity within the project.',
+    isSystem: true,
+  },
+  {
+    name: 'Team Member',
+    description: 'Normal project participant.',
+    isSystem: true,
+  },
+  {
+    name: 'Guest',
+    description: 'External collaborator with limited project access.',
+    isSystem: true,
+  },
+] as const;
+
+export enum DefaultProjectRole {
+  PROJECT_OWNER = 'Project Owner',
+  PROJECT_MANAGER = 'Project Manager',
+  TEAM_LEAD = 'Team Lead',
+  TEAM_MEMBER = 'Team Member',
+  GUEST = 'Guest',
+}

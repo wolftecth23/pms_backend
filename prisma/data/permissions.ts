@@ -21,6 +21,15 @@ export const PermissionModule = {
 export type PermissionModule =
   (typeof PermissionModule)[keyof typeof PermissionModule];
 
+export const PROJECT_ALLOWED_MODULES = [
+  PermissionModule.PROJECT,
+  PermissionModule.PROJECT_MEMBER,
+  PermissionModule.TASK,
+  PermissionModule.TASK_STATUS,
+  PermissionModule.COMMENT,
+  PermissionModule.ROLE,
+] as const;
+
 export const DEFAULT_PERMISSIONS = [
   // Organization
   {
@@ -309,6 +318,12 @@ export const DEFAULT_PERMISSIONS = [
     code: 'project_member.change_permissions',
     name: 'Change Project Member Permissions',
     description: 'Change a project member permissions',
+    module: PermissionModule.PROJECT_MEMBER,
+  },
+  {
+    code: 'project_member.change_role',
+    name: 'Change Project Member Role',
+    description: 'Change a project member role',
     module: PermissionModule.PROJECT_MEMBER,
   },
 

@@ -289,7 +289,7 @@ export class TaskService {
     const tasks = await this.prisma.task.findMany({
       where,
       orderBy: {
-        order: 'asc',
+        order: 'desc',
       },
       include: {
         status: {
@@ -340,12 +340,24 @@ export class TaskService {
             email: true,
           },
         },
+        tags: {
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
 
     const mappedTasks = tasks.map((task) => ({
       ...task,
       ...computeTaskTimeEffort(task),
+      tags: task.tags?.map((tt: any) => tt.tag) || [],
     }));
 
     return {

@@ -1,5 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { DEFAULT_ROLE_PERMISSIONS } from '../data/rolePermissions';
+import { PrismaClient, StatusScope } from '@prisma/client';
+import {
+  DEFAULT_PROJECT_ROLE_PERMISSIONS,
+  DEFAULT_ROLE_PERMISSIONS,
+} from '../data/rolePermissions';
 
 export async function seedRolePermissions(prisma: PrismaClient) {
   const roles = await prisma.role.findMany({
@@ -15,10 +18,16 @@ export async function seedRolePermissions(prisma: PrismaClient) {
   );
 
   for (const role of roles) {
-    const permissionCodes =
-      DEFAULT_ROLE_PERMISSIONS[
-        role.name as keyof typeof DEFAULT_ROLE_PERMISSIONS
-      ];
+    let permissionCodes: readonly string[] | string[] | undefined;
+
+    if (role.scope === StatusScope.PROJECT) {
+      permissionCodes = DEFAULT_PROJECT_ROLE_PERMISSIONS[role.name];
+    } else {
+      permissionCodes =
+        DEFAULT_ROLE_PERMISSIONS[
+          role.name as keyof typeof DEFAULT_ROLE_PERMISSIONS
+        ];
+    }
 
     if (!permissionCodes) continue;
 
@@ -55,3 +64,4 @@ export async function seedRolePermissions(prisma: PrismaClient) {
 
   console.log('✅ Role permissions seeded');
 }
+

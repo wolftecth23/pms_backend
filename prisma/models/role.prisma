@@ -4,6 +4,7 @@ model Role {
   scope StatusScope @default(ORGANIZATION)
 
   organizationId String?
+  projectId      String?
 
   name String
 
@@ -16,6 +17,7 @@ model Role {
   deletedAt DateTime?
 
   organization Organization? @relation(fields: [organizationId], references: [id])
+  project      Project?      @relation(fields: [projectId], references: [id])
 
   members ProjectMember[]
 
@@ -24,7 +26,8 @@ model Role {
   projectRoles       ProjectMember[]      @relation("ProjectRole")
 
   @@unique([organizationId, name])
-  @@unique([scope, name])
+  @@unique([projectId, name])
+  @@index([projectId])
   @@map("roles")
 }
 

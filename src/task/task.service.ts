@@ -238,7 +238,11 @@ export class TaskService {
     });
   }
 
-  async findByProject(projectId: string, request: AuthRequest) {
+  async findByProject(
+    projectId: string,
+    request: AuthRequest,
+    assigneeIds: string[] = [],
+  ) {
     if (!projectId) {
       throw new BadRequestException('Project ID is required.');
     }
@@ -275,15 +279,43 @@ export class TaskService {
       deletedAt: null,
     };
 
-    if (!context.hasPermission('task.view_all')) {
-      where.assignees = {
-        some: {
-          projectMember: {
-            userId: context.userId,
+    if (assigneeIds.length > 0) {
+      // Validate: only keep projectMemberIds belonging to this project
+      const validMembers = await this.prisma.projectMember.findMany({
+        where: { id: { in: assigneeIds }, projectId, removedAt: null },
+        select: { id: true },
+      });
+      const validIds = validMembers.map((m) => m.id);
+
+      if (!context.hasPermission('task.view_all')) {
+        // Intersect: must be assigned to current user AND in selected filter
+        const currentMember = await this.prisma.projectMember.findFirst({
+          where: { projectId, userId: context.userId, removedAt: null },
+          select: { id: true },
+        });
+        const allowedIds = currentMember
+          ? validIds.filter((id) => id === currentMember.id)
+          : [];
+        where.assignees = {
+          some: { projectMemberId: { in: allowedIds }, removedAt: null },
+        };
+      } else {
+        where.assignees = {
+          some: { projectMemberId: { in: validIds }, removedAt: null },
+        };
+      }
+    } else {
+      if (!context.hasPermission('task.view_all')) {
+        where.assignees = {
+          some: {
+            projectMember: {
+              userId: context.userId,
+              removedAt: null,
+            },
             removedAt: null,
           },
-        },
-      };
+        };
+      }
     }
 
     const tasks = await this.prisma.task.findMany({

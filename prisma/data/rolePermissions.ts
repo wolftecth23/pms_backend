@@ -340,6 +340,7 @@ export const DEFAULT_PROJECT_ROLE_PERMISSIONS: Record<string, string[]> = {
 
     // Tasks
     'task.view',
+    'task.view_all',
     'task.update',
     'task.change_status',
     'task.log_time',
@@ -366,4 +367,3 @@ export const DEFAULT_PROJECT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'comment.delete',
   ],
 };
-

@@ -63,9 +63,16 @@ export class TaskController {
   @ApiOperation({ summary: 'Get project tasks' })
   findByProject(
     @Query('projectId') projectId: string,
+    @Query('assigneeIds') rawAssigneeIds: string | undefined,
     @Request() request: AuthRequest,
   ) {
-    return this.taskService.findByProject(projectId, request);
+    const assigneeIds = rawAssigneeIds
+      ? rawAssigneeIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+    return this.taskService.findByProject(projectId, request, assigneeIds);
   }
 
   @Patch('change-status')

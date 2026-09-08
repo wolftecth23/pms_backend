@@ -336,7 +336,7 @@ export const DEFAULT_PERMISSIONS = [
   },
   {
     code: 'task.view_all',
-    name: 'View Task',
+    name: 'View All Tasks',
     description: 'View all tasks in the current project',
     module: PermissionModule.TASK,
   },

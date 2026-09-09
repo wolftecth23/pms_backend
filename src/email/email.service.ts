@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import {
   CommentMentionEmailData,
   renderCommentMentionTemplate,
@@ -46,20 +47,30 @@ export class EmailService {
 
       const { subject, html, text } = renderCommentMentionTemplate(data);
 
-      if (!this.transporter) {
-        this.logger.log(
-          `[MOCK EMAIL SENT] To: ${data.recipientEmail} (${data.recipientName}) | Subject: "${subject}" | URL: ${data.commentUrl}`,
-        );
-        return true;
-      }
+      if (process.env.NODE_ENV === 'development') {
+        const resend = new Resend(process.env.RESEND_EMAIL_API_KEY);
+        await resend.emails.send({
+          from: 'Acme <onboarding@resend.dev>',
+          to: data.recipientEmail,
+          subject,
+          html,
+        });
+      } else {
+        if (!this.transporter) {
+          this.logger.log(
+            `[MOCK EMAIL SENT] To: ${data.recipientEmail} (${data.recipientName}) | Subject: "${subject}" | URL: ${data.commentUrl}`,
+          );
+          return true;
+        }
 
-      await this.transporter.sendMail({
-        from,
-        to: data.recipientEmail,
-        subject,
-        text,
-        html,
-      });
+        await this.transporter.sendMail({
+          from,
+          to: data.recipientEmail,
+          subject,
+          text,
+          html,
+        });
+      }
 
       this.logger.log(
         `Mention email sent successfully to ${data.recipientEmail} for task "${data.taskName}"`,

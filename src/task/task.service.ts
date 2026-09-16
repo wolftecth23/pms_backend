@@ -16,6 +16,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import {
+  TaskActivityEntity,
+  TaskActivityEvent,
+} from './constants/task-activity-event.enum';
+import { CreateTaskActivityDto } from './dto/create-task-activity.dto';
+import { TaskActivityQueryDto } from './dto/task-activity-query.dto';
+import { TaskActivityService } from './task-activity.service';
 import { computeTaskTimeEffort } from './helpers/task-time.helper';
 import { TaskTreeRow } from './types/task-tree.type';
 
@@ -29,6 +36,7 @@ export class TaskService {
     private readonly taskParentServiceValidation: TaskParentServiceValidation,
     private readonly taskAssigneeServiceValidation: TaskAssigneeServiceValidation,
     private readonly storageService: StorageService,
+    private readonly taskActivityService: TaskActivityService,
   ) {}
 
   async getNextOrder(projectId: string): Promise<number> {
@@ -213,20 +221,82 @@ export class TaskService {
         });
       }
 
-      /**
-       * Create Activity
-       * Uncomment if TaskActivity is implemented
-       */
-
-      /*
-      await tx.taskActivity.create({
-        data: {
+      const activitiesToCreate: CreateTaskActivityDto[] = [
+        {
           taskId: task.id,
           userId: context.userId,
-          action: TaskActivityAction.TASK_CREATED,
+          eventType: TaskActivityEvent.TASK_CREATED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: task.id,
+          newValue: {
+            title: task.title,
+            status: task.status
+              ? { id: task.status.id, name: task.status.name }
+              : null,
+            priority: task.priority
+              ? { id: task.priority.id, name: task.priority.name }
+              : null,
+          },
+          message: 'created this task',
         },
-      });
-      */
+      ];
+
+      if (projectMemberIds.length > 0) {
+        const members = await tx.projectMember.findMany({
+          where: { id: { in: projectMemberIds } },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        });
+        for (const member of members) {
+          const memberName = [member.user.firstName, member.user.lastName]
+            .filter(Boolean)
+            .join(' ');
+          activitiesToCreate.push({
+            taskId: task.id,
+            userId: context.userId,
+            eventType: TaskActivityEvent.TASK_ASSIGNED,
+            entityType: TaskActivityEntity.TASK_ASSIGNEE,
+            entityId: member.id,
+            newValue: {
+              projectMemberId: member.id,
+              userId: member.user.id,
+              name: memberName,
+            },
+            message: `assigned ${memberName}`,
+          });
+        }
+      }
+
+      if (dto.tagIds && dto.tagIds.length > 0) {
+        const tags = await tx.tag.findMany({
+          where: { id: { in: dto.tagIds } },
+          select: { id: true, name: true },
+        });
+        for (const tag of tags) {
+          activitiesToCreate.push({
+            taskId: task.id,
+            userId: context.userId,
+            eventType: TaskActivityEvent.TASK_TAG_ADDED,
+            entityType: TaskActivityEntity.TASK_TAG,
+            entityId: tag.id,
+            newValue: {
+              tagId: tag.id,
+              name: tag.name,
+            },
+            message: `added tag "${tag.name}"`,
+          });
+        }
+      }
+
+      await this.taskActivityService.logMany(activitiesToCreate, tx);
 
       return {
         message: 'Task created successfully.',
@@ -279,14 +349,14 @@ export class TaskService {
       deletedAt: null,
     };
 
-    if (assigneeIds.length > 0) {
-      // Validate: only keep projectMemberIds belonging to this project
-      const validMembers = await this.prisma.projectMember.findMany({
-        where: { id: { in: assigneeIds }, projectId, removedAt: null },
-        select: { id: true },
-      });
-      const validIds = validMembers.map((m) => m.id);
+    const hasUnassigned = assigneeIds.some(
+      (id) => id.toLowerCase() === 'unassigned',
+    );
+    const memberIds = assigneeIds.filter(
+      (id) => id.toLowerCase() !== 'unassigned',
+    );
 
+    if (assigneeIds.length > 0) {
       if (!context.hasPermission('task.view_all')) {
         // Intersect: must be assigned to current user AND in selected filter
         const currentMember = await this.prisma.projectMember.findFirst({
@@ -294,15 +364,40 @@ export class TaskService {
           select: { id: true },
         });
         const allowedIds = currentMember
-          ? validIds.filter((id) => id === currentMember.id)
+          ? memberIds.filter((id) => id === currentMember.id)
           : [];
         where.assignees = {
           some: { projectMemberId: { in: allowedIds }, removedAt: null },
         };
       } else {
-        where.assignees = {
-          some: { projectMemberId: { in: validIds }, removedAt: null },
-        };
+        // Validate: only keep projectMemberIds belonging to this project
+        const validMembers =
+          memberIds.length > 0
+            ? await this.prisma.projectMember.findMany({
+                where: { id: { in: memberIds }, projectId, removedAt: null },
+                select: { id: true },
+              })
+            : [];
+        const validIds = validMembers.map((m) => m.id);
+
+        if (hasUnassigned && validIds.length > 0) {
+          where.OR = [
+            { assignees: { none: { removedAt: null } } },
+            {
+              assignees: {
+                some: { projectMemberId: { in: validIds }, removedAt: null },
+              },
+            },
+          ];
+        } else if (hasUnassigned) {
+          where.assignees = {
+            none: { removedAt: null },
+          };
+        } else {
+          where.assignees = {
+            some: { projectMemberId: { in: validIds }, removedAt: null },
+          };
+        }
       }
     } else {
       if (!context.hasPermission('task.view_all')) {
@@ -461,6 +556,12 @@ export class TaskService {
         id: true,
         projectId: true,
         taskStatusId: true,
+        status: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         project: {
           select: {
             organizationId: true,
@@ -526,15 +627,21 @@ export class TaskService {
       },
     });
 
-    /*
-  await this.prisma.taskActivity.create({
-    data: {
+    await this.taskActivityService.log({
       taskId: task.id,
       userId: context.userId,
-      action: TaskActivityAction.STATUS_CHANGED,
-    },
-  });
-  */
+      eventType: TaskActivityEvent.TASK_STATUS_CHANGED,
+      entityType: TaskActivityEntity.TASK,
+      entityId: task.id,
+      fieldName: 'taskStatusId',
+      oldValue: task.status
+        ? { id: task.status.id, name: task.status.name }
+        : { id: task.taskStatusId },
+      newValue: updatedTask.status
+        ? { id: updatedTask.status.id, name: updatedTask.status.name }
+        : { id: dto.statusId },
+      message: `changed status to ${updatedTask.status?.name ?? 'updated status'}`,
+    });
 
     return {
       message: 'Task status updated successfully.',
@@ -574,6 +681,50 @@ export class TaskService {
         purchaseMinutes: true,
         estimatedMinutes: true,
         spentMinutes: true,
+        status: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        priority: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        tags: {
+          select: {
+            tagId: true,
+            tag: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        assignees: {
+          where: {
+            removedAt: null,
+          },
+          select: {
+            projectMemberId: true,
+            projectMember: {
+              select: {
+                id: true,
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+        },
 
         project: {
           select: {
@@ -799,16 +950,6 @@ export class TaskService {
         }
       }
 
-      /*
-    await tx.taskActivity.create({
-      data: {
-        taskId: id,
-        userId: context.userId,
-        action: TaskActivityAction.TASK_UPDATED,
-      },
-    });
-    */
-
       // Update tags if provided (replace all existing tags)
       if (dto.tagIds !== undefined) {
         await tx.taskTag.deleteMany({ where: { taskId: id } });
@@ -819,6 +960,282 @@ export class TaskService {
           });
         }
       }
+
+      const activitiesToCreate: CreateTaskActivityDto[] = [];
+
+      // Title
+      if (dto.title !== undefined && dto.title !== task.title) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_TITLE_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'title',
+          oldValue: task.title,
+          newValue: dto.title,
+          message: `changed title from "${task.title}" to "${dto.title}"`,
+        });
+      }
+
+      // Description
+      if (
+        dto.description !== undefined &&
+        dto.description !== task.description
+      ) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_DESCRIPTION_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'description',
+          oldValue: task.description,
+          newValue: dto.description,
+          message: 'updated the description',
+        });
+      }
+
+      // Status
+      if (dto.statusId !== undefined && dto.statusId !== task.taskStatusId) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_STATUS_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'taskStatusId',
+          oldValue: task.status
+            ? { id: task.status.id, name: task.status.name }
+            : { id: task.taskStatusId },
+          newValue: updatedTask.status
+            ? { id: updatedTask.status.id, name: updatedTask.status.name }
+            : { id: dto.statusId },
+          message: `changed status to ${updatedTask.status?.name ?? 'updated status'}`,
+        });
+      }
+
+      // Priority
+      if (dto.priorityId !== undefined && dto.priorityId !== task.priorityId) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_PRIORITY_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'priorityId',
+          oldValue: task.priority
+            ? { id: task.priority.id, name: task.priority.name }
+            : { id: task.priorityId },
+          newValue: updatedTask.priority
+            ? { id: updatedTask.priority.id, name: updatedTask.priority.name }
+            : { id: dto.priorityId },
+          message: `changed priority to ${updatedTask.priority?.name ?? 'updated priority'}`,
+        });
+      }
+
+      // Start Date
+      const oldStartStr = task.startDate
+        ? new Date(task.startDate).toISOString()
+        : null;
+      const newStartStr =
+        dto.startDate !== undefined
+          ? dto.startDate
+            ? new Date(dto.startDate).toISOString()
+            : null
+          : oldStartStr;
+      if (dto.startDate !== undefined && oldStartStr !== newStartStr) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_START_DATE_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'startDate',
+          oldValue: oldStartStr,
+          newValue: newStartStr,
+          message: 'updated start date',
+        });
+      }
+
+      // Due Date
+      const oldDueStr = task.dueDate
+        ? new Date(task.dueDate).toISOString()
+        : null;
+      const newDueStr =
+        dto.dueDate !== undefined
+          ? dto.dueDate
+            ? new Date(dto.dueDate).toISOString()
+            : null
+          : oldDueStr;
+      if (dto.dueDate !== undefined && oldDueStr !== newDueStr) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_DUE_DATE_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'dueDate',
+          oldValue: oldDueStr,
+          newValue: newDueStr,
+          message: 'updated due date',
+        });
+      }
+
+      // Estimated Minutes
+      if (
+        dto.estimatedMinutes !== undefined &&
+        dto.estimatedMinutes !== task.estimatedMinutes
+      ) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_ESTIMATED_MINUTES_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'estimatedMinutes',
+          oldValue: task.estimatedMinutes,
+          newValue: dto.estimatedMinutes,
+          message: 'updated estimated time',
+        });
+      }
+
+      // Spent Minutes
+      if (
+        dto.spentMinutes !== undefined &&
+        dto.spentMinutes !== task.spentMinutes
+      ) {
+        activitiesToCreate.push({
+          taskId: id,
+          userId: context.userId,
+          eventType: TaskActivityEvent.TASK_SPENT_MINUTES_CHANGED,
+          entityType: TaskActivityEntity.TASK,
+          entityId: id,
+          fieldName: 'spentMinutes',
+          oldValue: task.spentMinutes,
+          newValue: dto.spentMinutes,
+          message: 'updated spent time',
+        });
+      }
+
+      // Assignees
+      if (dto.assigneeIds !== undefined && projectMemberIds !== undefined) {
+        const oldMemberIds = task.assignees.map((a) => a.projectMemberId);
+        const addedMemberIds = projectMemberIds.filter(
+          (mId) => !oldMemberIds.includes(mId),
+        );
+        const removedMemberIds = oldMemberIds.filter(
+          (mId) => !projectMemberIds.includes(mId),
+        );
+
+        if (addedMemberIds.length > 0) {
+          const addedMembers = await tx.projectMember.findMany({
+            where: { id: { in: addedMemberIds } },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                },
+              },
+            },
+          });
+          for (const member of addedMembers) {
+            const memberName = [member.user.firstName, member.user.lastName]
+              .filter(Boolean)
+              .join(' ');
+            activitiesToCreate.push({
+              taskId: id,
+              userId: context.userId,
+              eventType: TaskActivityEvent.TASK_ASSIGNED,
+              entityType: TaskActivityEntity.TASK_ASSIGNEE,
+              entityId: member.id,
+              newValue: {
+                projectMemberId: member.id,
+                userId: member.user.id,
+                name: memberName,
+              },
+              message: `assigned ${memberName}`,
+            });
+          }
+        }
+
+        for (const memberId of removedMemberIds) {
+          const existingAssignee = task.assignees.find(
+            (a) => a.projectMemberId === memberId,
+          );
+          const u = existingAssignee?.projectMember?.user;
+          const memberName = u
+            ? [u.firstName, u.lastName].filter(Boolean).join(' ')
+            : 'assignee';
+          activitiesToCreate.push({
+            taskId: id,
+            userId: context.userId,
+            eventType: TaskActivityEvent.TASK_UNASSIGNED,
+            entityType: TaskActivityEntity.TASK_ASSIGNEE,
+            entityId: memberId,
+            oldValue: {
+              projectMemberId: memberId,
+              userId: u?.id,
+              name: memberName,
+            },
+            message: `unassigned ${memberName}`,
+          });
+        }
+      }
+
+      // Tags
+      if (dto.tagIds !== undefined) {
+        const oldTagIds = task.tags.map((t) => t.tagId);
+        const addedTagIds = dto.tagIds.filter(
+          (tid) => !oldTagIds.includes(tid),
+        );
+        const removedTagIds = oldTagIds.filter(
+          (tid) => !dto.tagIds!.includes(tid),
+        );
+
+        if (addedTagIds.length > 0) {
+          const addedTags = await tx.tag.findMany({
+            where: { id: { in: addedTagIds } },
+            select: { id: true, name: true },
+          });
+          for (const tag of addedTags) {
+            activitiesToCreate.push({
+              taskId: id,
+              userId: context.userId,
+              eventType: TaskActivityEvent.TASK_TAG_ADDED,
+              entityType: TaskActivityEntity.TASK_TAG,
+              entityId: tag.id,
+              newValue: {
+                tagId: tag.id,
+                name: tag.name,
+              },
+              message: `added tag "${tag.name}"`,
+            });
+          }
+        }
+
+        for (const tid of removedTagIds) {
+          const existingTag = task.tags.find((t) => t.tagId === tid)?.tag;
+          const tagName = existingTag?.name ?? 'tag';
+          activitiesToCreate.push({
+            taskId: id,
+            userId: context.userId,
+            eventType: TaskActivityEvent.TASK_TAG_REMOVED,
+            entityType: TaskActivityEntity.TASK_TAG,
+            entityId: tid,
+            oldValue: {
+              tagId: tid,
+              name: tagName,
+            },
+            message: `removed tag "${tagName}"`,
+          });
+        }
+      }
+
+      await this.taskActivityService.logMany(activitiesToCreate, tx);
 
       return {
         message: 'Task updated successfully.',
@@ -1096,6 +1513,21 @@ export class TaskService {
       },
     });
 
+    await this.taskActivityService.log({
+      taskId,
+      userId,
+      eventType: TaskActivityEvent.TASK_ATTACHMENT_ADDED,
+      entityType: TaskActivityEntity.TASK_ATTACHMENT,
+      entityId: attachment.id,
+      newValue: {
+        id: attachment.id,
+        name: attachment.name,
+        size: attachment.size,
+        mimeType: attachment.mimeType,
+      },
+      message: `added attachment "${attachment.name}"`,
+    });
+
     return {
       success: true,
       message: 'Attachment uploaded successfully.',
@@ -1132,6 +1564,19 @@ export class TaskService {
       throw new ForbiddenException('You do not have access to this resource.');
     }
 
+    await this.taskActivityService.log({
+      taskId: attachment.taskId,
+      userId: context.userId,
+      eventType: TaskActivityEvent.TASK_ATTACHMENT_REMOVED,
+      entityType: TaskActivityEntity.TASK_ATTACHMENT,
+      entityId: attachment.id,
+      oldValue: {
+        id: attachment.id,
+        name: attachment.name,
+      },
+      message: `removed attachment "${attachment.name}"`,
+    });
+
     // Delete file from disk
     this.storageService.deleteFile(attachment.url);
 
@@ -1144,6 +1589,20 @@ export class TaskService {
       success: true,
       message: 'Attachment deleted successfully.',
     };
+  }
+
+  async getTaskActivities(
+    taskId: string,
+    query: TaskActivityQueryDto,
+    request: AuthRequest,
+  ) {
+    const context = await this.contextService.resolveContext(request);
+    return this.taskActivityService.getTaskActivities(
+      taskId,
+      query.page,
+      Number(query.limit),
+      context,
+    );
   }
 
   // findAll() {

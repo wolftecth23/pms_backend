@@ -177,9 +177,9 @@ model TaskActivity {
 
   fieldName String?
 
-  oldValue String?
+  oldValue Json?
 
-  newValue String?
+  newValue Json?
 
   message String?
 

@@ -28,6 +28,7 @@ import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard'
 import { StorageService } from '../common/storage/storage.service';
 import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { TaskActivityQueryDto } from './dto/task-activity-query.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskService } from './task.service';
 
@@ -104,6 +105,20 @@ export class TaskController {
   @ApiOperation({ summary: 'Get a task by id' })
   findOne(@Param('id') id: string, @Request() request: AuthRequest) {
     return this.taskService.findOne(id, request);
+  }
+
+  // ─── TASK ACTIVITIES ────────────────────────────────────────────────────
+
+  @Get(':taskId/activities')
+  @RequirePermissions('task.view')
+  @RequireProjectPermissions('task.view')
+  @ApiOperation({ summary: 'Get activity timeline for a task' })
+  getTaskActivities(
+    @Param('taskId') taskId: string,
+    @Query() query: TaskActivityQueryDto,
+    @Request() request: AuthRequest,
+  ) {
+    return this.taskService.getTaskActivities(taskId, query, request);
   }
 
   // ─── TASK ATTACHMENTS ───────────────────────────────────────────────────

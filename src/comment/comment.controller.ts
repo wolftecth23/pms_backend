@@ -85,6 +85,26 @@ export class CommentController {
     return this.commentService.getComment(commentId, getUserId(req));
   }
 
+  // ─── GET COMMENT CONTEXT (FOR DEEP-LINKING & QUOTE-JUMPING) ───────────────
+
+  @Get('tasks/:taskId/comments/:commentId')
+  @RequireProjectPermissions('comment.view')
+  @ApiOperation({ summary: 'Get comment and pagination context for deep-linking' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getCommentContext(
+    @Param('taskId') taskId: string,
+    @Param('commentId') commentId: string,
+    @Query('limit') limit?: number,
+    @Request() req?: authController.AuthRequest,
+  ) {
+    return this.commentService.getCommentContext(
+      taskId,
+      commentId,
+      getUserId(req!),
+      limit,
+    );
+  }
+
   // ─── CREATE COMMENT (JSON or multipart with files) ────────────────────────
 
   @Post('tasks/:taskId/comments')

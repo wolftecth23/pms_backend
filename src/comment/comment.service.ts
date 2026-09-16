@@ -125,6 +125,88 @@ export class CommentService {
     return formatComment(comment, currentUserId);
   }
 
+  // ─── GET COMMENT CONTEXT (FOR DEEP-LINKING & QUOTE-JUMPING) ───────────────
+
+  async getCommentContext(
+    taskId: string,
+    commentId: string,
+    currentUserId: string,
+    limit?: number,
+  ) {
+    const comment = await this.prisma.comment.findFirst({
+      where: {
+        id: commentId,
+        taskId,
+      },
+      include: COMMENT_INCLUDE,
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found in this task.');
+    }
+
+    const where = {
+      taskId,
+      OR: [
+        { scheduledFor: null },
+        { scheduleStatus: SCHEDULE_STATUS.SENT },
+        { userId: currentUserId },
+      ],
+    };
+
+    const parsedLimit =
+      limit !== undefined && limit !== null && !isNaN(Number(limit))
+        ? Math.min(Math.max(Number(limit), 1), 100)
+        : 10;
+
+    const newerCommentsCount = await this.prisma.comment.count({
+      where: {
+        ...where,
+        sentAt: { gt: comment.sentAt },
+      },
+    });
+
+    const positionFromNewest = newerCommentsCount;
+
+    let estimatedCursor: string | null = null;
+    let olderCursor: string | null = null;
+
+    if (positionFromNewest >= parsedLimit) {
+      const pageIndex = Math.floor(positionFromNewest / parsedLimit);
+      const cursorSkip = pageIndex * parsedLimit - 1;
+      const cursorComment = await this.prisma.comment.findMany({
+        where,
+        orderBy: { sentAt: 'desc' },
+        skip: cursorSkip,
+        take: 1,
+        select: { id: true },
+      });
+      estimatedCursor = cursorComment[0]?.id ?? null;
+
+      const olderCursorSkip = (pageIndex + 1) * parsedLimit - 1;
+      const olderCursorComment = await this.prisma.comment.findMany({
+        where,
+        orderBy: { sentAt: 'desc' },
+        skip: olderCursorSkip,
+        take: 1,
+        select: { id: true },
+      });
+      olderCursor = olderCursorComment[0]?.id ?? null;
+    }
+
+    return {
+      data: {
+        comment: formatComment(comment, currentUserId),
+        context: {
+          positionFromNewest,
+          estimatedCursor,
+          olderCursor,
+          limit: parsedLimit,
+        },
+      },
+    };
+  }
+
   // ─── CREATE COMMENT ───────────────────────────────────────────────────────
 
   async createComment(

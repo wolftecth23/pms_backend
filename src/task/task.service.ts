@@ -1258,6 +1258,7 @@ export class TaskService {
     WITH RECURSIVE task_tree AS (
       SELECT
         t.*,
+        p.name as "projectName",
         0 AS depth
       FROM tasks t
       INNER JOIN projects p
@@ -1273,6 +1274,7 @@ export class TaskService {
 
       SELECT
         child.*,
+        parent."projectName",
         parent.depth + 1 AS depth
       FROM tasks child
       INNER JOIN task_tree parent

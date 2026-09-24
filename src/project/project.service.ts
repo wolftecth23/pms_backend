@@ -936,6 +936,13 @@ export class ProjectService {
         },
       });
 
+      const defaultRole = await tx.role.findFirst({
+        where: {
+          scope: StatusScope.PROJECT,
+          name: 'Team Member',
+        },
+      });
+
       for (const userId of uniqueMemberIds) {
         await tx.projectMember.upsert({
           where: {
@@ -945,14 +952,14 @@ export class ProjectService {
             },
           },
           update: {
-            projectRoleId: null,
+            // projectRoleId: null,
             removedAt: null,
             removedById: null,
           },
           create: {
             projectId: id,
             userId,
-            // projectRoleId: dto.projectRoleId || null,
+            projectRoleId: defaultRole?.id || null,
           },
         });
       }

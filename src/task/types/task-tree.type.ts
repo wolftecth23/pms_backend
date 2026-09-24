@@ -1,6 +1,7 @@
 export type TaskTreeRow = {
   id: string;
   projectId: string;
+  projectName: string;
   parentTaskId: string | null;
 
   title: string;

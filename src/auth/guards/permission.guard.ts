@@ -11,6 +11,10 @@ import {
   ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY,
 } from '../decorators/permissions.decorator';
+import {
+  ANY_PROJECT_PERMISSIONS_KEY,
+  PROJECT_PERMISSIONS_KEY,
+} from '../decorators/project-permissions.decorator';
 
 interface OrganizationParams {
   organizationId: string;
@@ -42,6 +46,24 @@ export class PermissionGuard implements CanActivate {
     if (!requiredPermissions.length && !anyPermissions.length) {
       return true;
     }
+
+    // Check whether this route also requires project-level permissions.
+    // If it does, we allow fallthrough so ProjectPermissionGuard can
+    // grant access for project-scoped users who lack org-level permissions.
+    const requiredProjectPermissions =
+      this.reflector.getAllAndOverride<string[]>(PROJECT_PERMISSIONS_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
+
+    const anyProjectPermissions =
+      this.reflector.getAllAndOverride<string[]>(ANY_PROJECT_PERMISSIONS_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
+
+    const hasProjectPermissionRequirements =
+      requiredProjectPermissions.length > 0 || anyProjectPermissions.length > 0;
 
     const request = context.switchToHttp().getRequest<PermissionRequest>();
 
@@ -78,6 +100,13 @@ export class PermissionGuard implements CanActivate {
       );
 
       if (!hasAllPermissions) {
+        // If the route also enforces project permissions, let
+        // ProjectPermissionGuard handle the final decision.
+        if (hasProjectPermissionRequirements) {
+          (request as any).orgPermissionFailed = true;
+          return true;
+        }
+
         throw new ForbiddenException({
           message: 'You do not have permission to perform this action.',
           error: 'Forbidden',
@@ -92,6 +121,13 @@ export class PermissionGuard implements CanActivate {
       );
 
       if (!hasAnyPermission) {
+        // If the route also enforces project permissions, let
+        // ProjectPermissionGuard handle the final decision.
+        if (hasProjectPermissionRequirements) {
+          (request as any).orgPermissionFailed = true;
+          return true;
+        }
+
         throw new ForbiddenException({
           message: 'You do not have permission to perform this action.',
           error: 'Forbidden',

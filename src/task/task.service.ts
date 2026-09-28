@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../auth/auth.controller';
+import { ProjectPermissionService } from '../common/access/project-permission.service';
 import { ContextService } from '../common/context/context.service';
 import { StorageService, UploadedFileResult } from '../common/storage/storage.service';
 import { TaskAssigneeServiceValidation } from '../common/validation/task-assignee.service';
@@ -31,6 +32,7 @@ export class TaskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly contextService: ContextService,
+    private readonly projectPermissionService: ProjectPermissionService,
     private readonly taskStatusServiceValidation: TaskStatusServiceValidation,
     private readonly taskPriorityServiceValidation: TaskPriorityServiceValidation,
     private readonly taskParentServiceValidation: TaskParentServiceValidation,
@@ -344,6 +346,15 @@ export class TaskService {
       );
     }
 
+    // Only check the project-level role for task.view_all.
+    // Org-level permissions do not apply inside a project scope.
+    const canViewAll =
+      await this.projectPermissionService.hasProjectPermission(
+        context.userId,
+        projectId,
+        'task.view_all',
+      );
+
     const where: Prisma.TaskWhereInput = {
       projectId,
       deletedAt: null,
@@ -357,7 +368,7 @@ export class TaskService {
     );
 
     if (assigneeIds.length > 0) {
-      if (!context.hasPermission('task.view_all')) {
+      if (!canViewAll) {
         // Intersect: must be assigned to current user AND in selected filter
         const currentMember = await this.prisma.projectMember.findFirst({
           where: { projectId, userId: context.userId, removedAt: null },
@@ -400,7 +411,7 @@ export class TaskService {
         }
       }
     } else {
-      if (!context.hasPermission('task.view_all')) {
+      if (!canViewAll) {
         where.assignees = {
           some: {
             projectMember: {

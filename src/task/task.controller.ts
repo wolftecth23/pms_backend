@@ -148,26 +148,35 @@ export class TaskController {
     const parts = req.parts();
     const uploadedAttachments: any[] = [];
 
-    for await (const part of parts) {
-      if (part.type === 'file') {
-        const chunks: Buffer[] = [];
-        for await (const chunk of part.file) {
-          chunks.push(chunk);
+    try {
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) {
+            chunks.push(chunk);
+          }
+          const buffer = Buffer.concat(chunks);
+          const saved = await this.storageService.saveFile(
+            buffer,
+            part.filename ?? 'file',
+            part.mimetype ?? 'application/octet-stream',
+          );
+          const res = await this.taskService.addTaskAttachment(
+            taskId,
+            userId,
+            saved,
+            req,
+          );
+          uploadedAttachments.push(res.data);
         }
-        const buffer = Buffer.concat(chunks);
-        const saved = await this.storageService.saveFile(
-          buffer,
-          part.filename ?? 'file',
-          part.mimetype ?? 'application/octet-stream',
-        );
-        const res = await this.taskService.addTaskAttachment(
-          taskId,
-          userId,
-          saved,
-          req,
-        );
-        uploadedAttachments.push(res.data);
       }
+    } catch (err: any) {
+      if (err?.code === 'FST_FILES_LIMIT') {
+        throw new BadRequestException(
+          'Too many files. You can upload a maximum of 10 files per request.',
+        );
+      }
+      throw err;
     }
 
     if (uploadedAttachments.length === 0) {

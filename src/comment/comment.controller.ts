@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -165,27 +166,36 @@ All uploaded files are saved and their metadata is stored as comment attachments
       const parts = req.parts();
       let rawData: string | undefined;
 
-      for await (const part of parts) {
-        if (part.type === 'field' && part.fieldname === 'data') {
-          rawData = part.value as string;
-        } else if (part.type === 'file') {
-          // Collect file buffer
-          const chunks: Buffer[] = [];
-          for await (const chunk of part.file) {
-            chunks.push(chunk);
-          }
-          const buffer = Buffer.concat(chunks);
-          const originalName = part.filename ?? 'file';
-          const mimeType = part.mimetype ?? 'application/octet-stream';
+      try {
+        for await (const part of parts) {
+          if (part.type === 'field' && part.fieldname === 'data') {
+            rawData = part.value as string;
+          } else if (part.type === 'file') {
+            // Collect file buffer
+            const chunks: Buffer[] = [];
+            for await (const chunk of part.file) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            const originalName = part.filename ?? 'file';
+            const mimeType = part.mimetype ?? 'application/octet-stream';
 
-          // Save to disk
-          const saved = await this.storage.saveFile(
-            buffer,
-            originalName,
-            mimeType,
-          );
-          uploadedFiles.push(saved);
+            // Save to disk
+            const saved = await this.storage.saveFile(
+              buffer,
+              originalName,
+              mimeType,
+            );
+            uploadedFiles.push(saved);
+          }
         }
+      } catch (err: any) {
+        if (err?.code === 'FST_FILES_LIMIT') {
+          throw new BadRequestException(
+            'Too many files. You can upload a maximum of 10 files per request.',
+          );
+        }
+        throw err;
       }
 
       if (!rawData) {
@@ -303,23 +313,32 @@ All uploaded files are saved and their metadata is stored as comment attachments
     const userId = getUserId(req);
     const parts = req.parts();
 
-    for await (const part of parts) {
-      if (part.type === 'file') {
-        const chunks: Buffer[] = [];
-        for await (const chunk of part.file) {
-          chunks.push(chunk);
+    try {
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) {
+            chunks.push(chunk);
+          }
+          const buffer = Buffer.concat(chunks);
+          const saved = await this.storage.saveFile(
+            buffer,
+            part.filename ?? 'file',
+            part.mimetype ?? 'application/octet-stream',
+          );
+          return this.commentService.addAttachment(commentId, userId, saved);
         }
-        const buffer = Buffer.concat(chunks);
-        const saved = await this.storage.saveFile(
-          buffer,
-          part.filename ?? 'file',
-          part.mimetype ?? 'application/octet-stream',
-        );
-        return this.commentService.addAttachment(commentId, userId, saved);
       }
+    } catch (err: any) {
+      if (err?.code === 'FST_FILES_LIMIT') {
+        throw new BadRequestException(
+          'Too many files. You can upload a maximum of 10 files per request.',
+        );
+      }
+      throw err;
     }
 
-    throw new Error('No file part found in multipart request.');
+    throw new BadRequestException('No file part found in multipart request.');
   }
 
   // ─── DELETE ATTACHMENT ────────────────────────────────────────────────────

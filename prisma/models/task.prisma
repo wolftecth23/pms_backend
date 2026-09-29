@@ -130,6 +130,8 @@ model Task {
   comments Comment[]
   attachments TaskAttachment[]
 
+  @@index([projectId, deletedAt, order(sort: Desc)])
+  @@index([projectId, taskStatusId, deletedAt])
   @@index([projectId])
   @@index([priorityId])
   @@map("tasks")
@@ -156,6 +158,7 @@ model TaskAssignee {
 
   assignedBy User @relation(fields: [assignedById], references: [id])
 
+  @@index([projectMemberId, removedAt])
   @@unique([taskId, projectMemberId])
   @@map("task_assignees")
 }

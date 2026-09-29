@@ -67,11 +67,18 @@ export class ProjectPermissionGuard implements CanActivate {
       });
     }
 
+    const member = await this.projectPermissionService.getProjectMember(
+      userId,
+      projectId,
+    );
+
     const memberPermissions =
-      await this.projectPermissionService.getProjectMemberPermissions(
-        userId,
-        projectId,
-      );
+      member?.projectRole?.permissions
+        ?.map((rp) => rp.permission?.code)
+        .filter(Boolean) ?? [];
+
+    (request as any).projectMember = member;
+    (request as any).projectPermissions = memberPermissions;
 
     const isSuperAdmin = memberPermissions.includes('*');
 

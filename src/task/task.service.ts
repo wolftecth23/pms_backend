@@ -346,14 +346,18 @@ export class TaskService {
       );
     }
 
-    // Only check the project-level role for task.view_all.
-    // Org-level permissions do not apply inside a project scope.
-    const canViewAll =
-      await this.projectPermissionService.hasProjectPermission(
-        context.userId,
-        projectId,
-        'task.view_all',
-      );
+    // Check the project-level role for task.view_all.
+    // Use cached permissions from ProjectPermissionGuard if available to avoid redundant 4-table join.
+    const cachedPerms = (request as any)?.projectPermissions as
+      | string[]
+      | undefined;
+    const canViewAll = cachedPerms
+      ? cachedPerms.includes('*') || cachedPerms.includes('task.view_all')
+      : await this.projectPermissionService.hasProjectPermission(
+          context.userId,
+          projectId,
+          'task.view_all',
+        );
 
     const where: Prisma.TaskWhereInput = {
       projectId,
@@ -370,10 +374,13 @@ export class TaskService {
     if (assigneeIds.length > 0) {
       if (!canViewAll) {
         // Intersect: must be assigned to current user AND in selected filter
-        const currentMember = await this.prisma.projectMember.findFirst({
-          where: { projectId, userId: context.userId, removedAt: null },
-          select: { id: true },
-        });
+        const cachedMember = (request as any)?.projectMember;
+        const currentMember =
+          cachedMember ??
+          (await this.prisma.projectMember.findFirst({
+            where: { projectId, userId: context.userId, removedAt: null },
+            select: { id: true },
+          }));
         const allowedIds = currentMember
           ? memberIds.filter((id) => id === currentMember.id)
           : [];
@@ -412,15 +419,25 @@ export class TaskService {
       }
     } else {
       if (!canViewAll) {
-        where.assignees = {
-          some: {
-            projectMember: {
-              userId: context.userId,
+        const cachedMemberId = (request as any)?.projectMember?.id;
+        if (cachedMemberId) {
+          where.assignees = {
+            some: {
+              projectMemberId: cachedMemberId,
               removedAt: null,
             },
-            removedAt: null,
-          },
-        };
+          };
+        } else {
+          where.assignees = {
+            some: {
+              projectMember: {
+                userId: context.userId,
+                removedAt: null,
+              },
+              removedAt: null,
+            },
+          };
+        }
       }
     }
 
@@ -429,7 +446,24 @@ export class TaskService {
       orderBy: {
         order: 'desc',
       },
-      include: {
+      select: {
+        id: true,
+        projectId: true,
+        parentTaskId: true,
+        title: true,
+        taskStatusId: true,
+        priorityId: true,
+        startDate: true,
+        dueDate: true,
+        completedAt: true,
+        purchaseMinutes: true,
+        estimatedMinutes: true,
+        spentMinutes: true,
+        order: true,
+        createdById: true,
+        createdAt: true,
+        updatedAt: true,
+        // EXCLUDE description & comment (fetched on-demand when opening task modal)
         status: {
           select: {
             id: true,
@@ -453,7 +487,8 @@ export class TaskService {
           where: {
             removedAt: null,
           },
-          include: {
+          select: {
+            id: true,
             projectMember: {
               select: {
                 id: true,

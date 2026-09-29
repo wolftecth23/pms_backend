@@ -1,3 +1,4 @@
+import compress from '@fastify/compress';
 import multipart from '@fastify/multipart';
 import staticFiles from '@fastify/static';
 import { NestFactory } from '@nestjs/core';
@@ -16,6 +17,9 @@ async function bootstrap() {
     AppModule,
     new FastifyAdapter(),
   );
+
+  // Enable Gzip and Deflate response compression
+  await app.register(compress, { encodings: ['gzip', 'deflate'] });
 
   // Set global prefix for all API endpoints
   app.setGlobalPrefix('api');

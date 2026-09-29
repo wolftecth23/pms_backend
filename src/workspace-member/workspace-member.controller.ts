@@ -2,6 +2,7 @@ import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import type { AuthRequest } from '../auth/auth.controller';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { RequireProjectPermissions } from '../auth/decorators/project-permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { WorkspaceMemberService } from './workspace-member.service';
@@ -15,6 +16,7 @@ export class WorkspaceMemberController {
 
   @Get()
   @RequirePermissions('project_member.view')
+  @RequireProjectPermissions('project_member.view')
   @ApiOperation({ summary: 'Get project members' })
   findMembers(
     @Request() request: AuthRequest,

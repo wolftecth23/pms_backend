@@ -5,6 +5,7 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import * as fs from 'fs';
 import * as path from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -28,8 +29,12 @@ async function bootstrap() {
     },
   });
 
-  // Serve uploaded files statically at /uploads/*
+  // Serve uploaded files statically at both /uploads/* and /api/uploads/*
   const uploadsDir = path.resolve(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
   await app.register(staticFiles, {
     root: uploadsDir,
     prefix: '/uploads/',

@@ -42,9 +42,10 @@ export class StorageService {
 
   constructor() {
     this.uploadDir = path.resolve(process.cwd(), 'uploads');
-    this.baseUrl =
+    const rawBaseUrl =
       process.env.UPLOADS_BASE_URL ??
-      `http://localhost:${process.env.PORT ?? 5000}/uploads`;
+      `http://localhost:${process.env.PORT ?? 5000}/api/uploads`;
+    this.baseUrl = rawBaseUrl.replace(/\/+$/, '');
 
     // Ensure uploads directory exists
     if (!fs.existsSync(this.uploadDir)) {

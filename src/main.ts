@@ -16,6 +16,9 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
 
+  // Set global prefix for all API endpoints
+  app.setGlobalPrefix('api');
+
   // Register @fastify/multipart for handling file uploads
   // attachFieldsToBody: false means we process parts manually via req.parts()
   await app.register(multipart, {
@@ -43,9 +46,9 @@ async function bootstrap() {
     credentials: true,
   }); // Enable CORS for external IP requests
 
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port);
 
-  console.log(`🚀 Server running at http://localhost:${port}`);
+  console.log(`🚀 Server running at http://localhost:${port}/api`);
   console.log(`📁 Uploads served at http://localhost:${port}/uploads/`);
 }
 

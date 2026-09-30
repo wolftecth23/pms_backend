@@ -43,5 +43,9 @@ model User {
 
   taskMemberRemovedBy TaskAssignee[] @relation("TaskMemberRemovedBy")
 
+  requestedChangeRequests ChangeRequest[] @relation("CRRequestedBy")
+  crActivities            CRActivity[]    @relation("CRActivityUser")
+  crAttachments           CRAttachment[]  @relation("CRUploadedBy")
+
   @@map("users")
 }

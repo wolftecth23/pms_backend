@@ -68,6 +68,15 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'role.update',
     'role.delete',
     'role.manage_permissions',
+
+    'cr.create',
+    'cr.view',
+    'cr.update',
+    'cr.delete',
+    'cr.submit',
+    'cr.approve_reject',
+    'cr.cancel',
+    'cr.manage_approvers',
   ],
 
   Admin: [
@@ -137,6 +146,15 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'role.create',
     'role.update',
     'role.manage_permissions',
+
+    'cr.create',
+    'cr.view',
+    'cr.update',
+    'cr.delete',
+    'cr.submit',
+    'cr.approve_reject',
+    'cr.cancel',
+    'cr.manage_approvers',
   ],
 
   'Project Manager': [
@@ -170,6 +188,14 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'comment.create',
     'comment.update',
     'comment.delete',
+
+    'cr.create',
+    'cr.view',
+    'cr.update',
+    'cr.submit',
+    'cr.cancel',
+    'cr.manage_approvers',
+    'cr.approve_reject',
   ],
 
   'Team Lead': [

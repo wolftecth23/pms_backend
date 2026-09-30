@@ -1,0 +1,133 @@
+model ChangeRequest {
+  id                   String        @id @default(cuid())
+  crNumber             String
+  organizationId       String
+  projectId            String
+  title                String
+  type                 CRType
+  priority             CRPriority    @default(MEDIUM)
+  status               CRStatus      @default(DRAFT)
+  requestedById        String
+  requestDate          DateTime      @default(now())
+  expectedDeliveryDate DateTime?
+  totalMinHours        Float         @default(0)
+  totalMaxHours        Float         @default(0)
+  totalProposedHours   Float         @default(0)
+  resolvedAt           DateTime?
+
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
+
+  organization         Organization  @relation(fields: [organizationId], references: [id])
+  project              Project       @relation(fields: [projectId], references: [id])
+  requestedBy          User          @relation("CRRequestedBy", fields: [requestedById], references: [id])
+
+  description          CRChangeDescription?
+  effortRows           CREffortRow[]
+  approvers            CRApprover[]
+  activities           CRActivity[]
+  attachments          CRAttachment[]
+
+  @@unique([projectId, crNumber])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([requestedById])
+  @@map("change_requests")
+}
+
+model CRChangeDescription {
+  id                    String        @id @default(cuid())
+  changeRequestId       String        @unique
+  existingScope         String?
+  requestedChange       String?
+  reasonForChange       String?
+  businessJustification String?
+  functionalImpact      String?
+  technicalImpact       String?
+  dependencies          String?
+  assumptions           String?
+  acceptanceCriteria    String?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  changeRequest         ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+
+  @@map("cr_change_descriptions")
+}
+
+model CREffortRow {
+  id              String        @id @default(cuid())
+  changeRequestId String
+  role            String
+  minHours        Float         @default(0)
+  maxHours        Float         @default(0)
+  proposedHours   Float         @default(0)
+  notes           String?
+  order           Int           @default(0)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  changeRequest   ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([changeRequestId])
+  @@map("cr_effort_rows")
+}
+
+model CRApprover {
+  id              String             @id @default(cuid())
+  changeRequestId String
+  orgMemberId     String
+  status          ApprovalStatus     @default(PENDING)
+  remarks         String?
+  respondedAt     DateTime?
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  changeRequest   ChangeRequest      @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  orgMember       OrganizationMember @relation(fields: [orgMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([changeRequestId, orgMemberId])
+  @@index([changeRequestId])
+  @@index([orgMemberId])
+  @@map("cr_approvers")
+}
+
+model CRActivity {
+  id              String        @id @default(cuid())
+  changeRequestId String
+  userId          String
+  eventType       String
+  oldValue        Json?
+  newValue        Json?
+  message         String?
+  createdAt       DateTime      @default(now())
+
+  changeRequest   ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  user            User          @relation("CRActivityUser", fields: [userId], references: [id])
+
+  @@index([changeRequestId])
+  @@index([userId])
+  @@map("cr_activities")
+}
+
+model CRAttachment {
+  id              String        @id @default(cuid())
+  changeRequestId String
+  uploadedById    String
+  name            String
+  size            Int
+  mimeType        String
+  url             String
+  createdAt       DateTime      @default(now())
+
+  changeRequest   ChangeRequest @relation(fields: [changeRequestId], references: [id], onDelete: Cascade)
+  uploadedBy      User          @relation("CRUploadedBy", fields: [uploadedById], references: [id])
+
+  @@index([changeRequestId])
+  @@map("cr_attachments")
+}

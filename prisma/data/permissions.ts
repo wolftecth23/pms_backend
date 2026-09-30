@@ -16,6 +16,8 @@ export const PermissionModule = {
   COMMENT: 'COMMENT',
 
   ROLE: 'ROLE',
+
+  CHANGE_REQUEST: 'CHANGE_REQUEST',
 } as const;
 
 export type PermissionModule =
@@ -465,5 +467,55 @@ export const DEFAULT_PERMISSIONS = [
     name: 'Manage Role Permissions',
     description: 'Assign permissions to roles',
     module: PermissionModule.ROLE,
+  },
+
+  // Change Request
+  {
+    code: 'cr.create',
+    name: 'Create Change Request',
+    description: 'Create a new Change Request',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.view',
+    name: 'View Change Requests',
+    description: 'View CRs across all projects in the org',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.update',
+    name: 'Update Change Request',
+    description: 'Edit a CR in DRAFT or PENDING_MODIFICATION',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.delete',
+    name: 'Delete Change Request',
+    description: 'Delete / archive a CR',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.submit',
+    name: 'Submit Change Request',
+    description: 'Submit a CR for review',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.approve_reject',
+    name: 'Approve or Reject Change Request',
+    description: 'Approve or reject a CR',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.cancel',
+    name: 'Cancel Change Request',
+    description: 'Cancel a CR',
+    module: PermissionModule.CHANGE_REQUEST,
+  },
+  {
+    code: 'cr.manage_approvers',
+    name: 'Manage Change Request Approvers',
+    description: 'Add or remove approvers from the org member pool',
+    module: PermissionModule.CHANGE_REQUEST,
   },
 ];

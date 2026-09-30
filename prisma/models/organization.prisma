@@ -27,10 +27,11 @@ model Organization {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  members   OrganizationMember[]
-  workspace Workspace[]
-  project   Project[]
-  role      Role[]
+  members        OrganizationMember[]
+  workspace      Workspace[]
+  project        Project[]
+  role           Role[]
+  changeRequests ChangeRequest[]
 
   @@map("organizations")
 }
@@ -54,6 +55,8 @@ model OrganizationMember {
   removedBy User? @relation("OrganizationMemberRemovedBy", fields: [removedById], references: [id])
 
   role Role @relation(fields: [roleId], references: [id])
+
+  crApprovers CRApprover[]
 
   @@unique([organizationId, userId])
   @@map("organization_members")

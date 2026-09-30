@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ChangeRequestModule } from './change-request/change-request.module';
 import { CommentModule } from './comment/comment.module';
 import { CommonModule } from './common/common.module';
 import { EmailModule } from './email/email.module';
@@ -39,6 +40,7 @@ import { WorkspaceMemberModule } from './workspace-member/workspace-member.modul
     WorkspaceMemberModule,
     TagModule,
     RoleModule,
+    ChangeRequestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

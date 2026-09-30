@@ -55,7 +55,7 @@ async function bootstrap() {
     credentials: true,
   }); // Enable CORS for external IP requests
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Server running at http://localhost:${port}/api`);
   console.log(`📁 Uploads served at http://localhost:${port}/uploads/`);

@@ -1132,13 +1132,22 @@ export class ChangeRequestService {
           (cr.totalPurchaseHours && cr.totalPurchaseHours > 0) ||
           (cr.totalEstimatedHours && cr.totalEstimatedHours > 0)
         ) {
-          await tx.project.update({
+          const project = await tx.project.findUnique({
             where: { id: cr.projectId },
-            data: {
-              purchaseHours: { increment: cr.totalPurchaseHours || 0 },
-              estimatedHours: { increment: cr.totalEstimatedHours || 0 },
-            },
+            select: { purchaseHours: true, estimatedHours: true },
           });
+
+          if (project) {
+            const currentPurchase = project.purchaseHours ?? 0;
+            const currentEstimated = project.estimatedHours ?? 0;
+            await tx.project.update({
+              where: { id: cr.projectId },
+              data: {
+                purchaseHours: currentPurchase + (cr.totalPurchaseHours || 0),
+                estimatedHours: currentEstimated + (cr.totalEstimatedHours || 0),
+              },
+            });
+          }
         }
       });
 

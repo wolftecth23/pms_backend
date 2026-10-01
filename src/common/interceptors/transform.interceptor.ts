@@ -36,12 +36,22 @@ export class TransformInterceptor<T> implements NestInterceptor<
     return next.handle().pipe(
       map((data: T) => {
         const result = data as ApiResponse<T>;
+        const extra =
+          typeof data === 'object' && data !== null && !Array.isArray(data)
+            ? Object.fromEntries(
+                Object.entries(data).filter(
+                  ([key]) =>
+                    !['success', 'statusCode', 'message', 'data'].includes(key),
+                ),
+              )
+            : {};
 
         return {
           success: true,
           statusCode,
           message: result.message ?? 'Successful',
           data: result.data ?? data,
+          ...extra,
         };
       }),
     );

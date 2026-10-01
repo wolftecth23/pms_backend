@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { AuthRequest } from '../../auth/auth.controller';
-import { JwtOrganization } from '../../auth/auth.service';
+import { JwtOrganization, JwtRole } from '../../auth/auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectContext } from '../../project/project.service';
 
@@ -133,6 +133,8 @@ export class ContextService {
     userId: string;
     organizationId: string;
     permissions: string[];
+    role?: JwtRole;
+    roleName?: string;
     hasPermission: (permission: string) => boolean;
   } {
     const userId = request.user.id ?? request.user.userId;
@@ -174,6 +176,8 @@ export class ContextService {
       userId,
       organizationId: resolvedOrganizationId,
       permissions: organization.permissions ?? [],
+      role: organization.role,
+      roleName: organization.role?.name,
 
       hasPermission(permission: string): boolean {
         return (organization.permissions ?? []).includes(permission);

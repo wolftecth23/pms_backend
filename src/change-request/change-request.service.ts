@@ -72,10 +72,27 @@ export class ChangeRequestService {
     page?: number,
     limit?: number,
     search?: string,
+    excludeUserId?: string,
   ) {
     const where: Prisma.OrganizationMemberWhereInput = {
       organizationId,
       removedAt: null,
+      ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
+      role: {
+        deletedAt: null,
+        permissions: {
+          some: {
+            isActive: true,
+            deletedAt: null,
+            permission: {
+              code: {
+                in: ['cr.approve_reject', '*'],
+              },
+              deletedAt: null,
+            },
+          },
+        },
+      },
     };
 
     if (search && search.trim()) {
@@ -215,6 +232,37 @@ export class ChangeRequestService {
       });
     }
 
+    if (dto.approverMemberIds?.length) {
+      const eligibleCount = await this.prisma.organizationMember.count({
+        where: {
+          id: { in: dto.approverMemberIds },
+          organizationId,
+          removedAt: null,
+          role: {
+            deletedAt: null,
+            permissions: {
+              some: {
+                isActive: true,
+                deletedAt: null,
+                permission: {
+                  code: {
+                    in: ['cr.approve_reject', '*'],
+                  },
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (eligibleCount !== dto.approverMemberIds.length) {
+        throw new BadRequestException(
+          'One or more selected approvers do not have permission to approve change requests.',
+        );
+      }
+    }
+
     const created = await this.prisma.$transaction(async (tx) => {
       const cr = await tx.changeRequest.create({
         data: {
@@ -317,9 +365,61 @@ export class ChangeRequestService {
   }
 
   /**
-   * List CRs for organization with filters, search, sorting, and pagination
+   * Helper to check if the user is an Admin or Owner in the organization
    */
-  async findAll(organizationId: string, query: CRQueryDto) {
+  async isUserAdminOrOwner(
+    userId?: string,
+    organizationId?: string,
+    contextRoleName?: string,
+    permissions?: string[],
+  ): Promise<boolean> {
+    if (!userId || !organizationId) return false;
+
+    if (permissions && permissions.includes('*')) {
+      return true;
+    }
+
+    let roleName = contextRoleName;
+
+    if (!roleName) {
+      const member = await this.prisma.organizationMember.findFirst({
+        where: {
+          userId,
+          organizationId,
+          removedAt: null,
+        },
+        include: {
+          role: { select: { name: true } },
+        },
+      });
+      roleName = member?.role?.name;
+    }
+
+    if (!roleName) {
+      return false;
+    }
+
+    const normalized = roleName.trim().toLowerCase();
+    return (
+      normalized === 'owner' ||
+      normalized === 'admin' ||
+      normalized === 'super admin' ||
+      normalized.includes('admin') ||
+      normalized.includes('owner')
+    );
+  }
+
+  /**
+   * List CRs for organization with filters, search, sorting, and pagination.
+   * Admins and Owners see all CRs; other users only see CRs created by themselves.
+   */
+  async findAll(
+    organizationId: string,
+    query: CRQueryDto,
+    userId?: string,
+    userRoleName?: string,
+    permissions?: string[],
+  ) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(query.limit) || 10));
     const skip = (page - 1) * limit;
@@ -328,6 +428,20 @@ export class ChangeRequestService {
       organizationId,
       deletedAt: null,
     };
+
+    const canSeeAll = await this.isUserAdminOrOwner(
+      userId,
+      organizationId,
+      userRoleName,
+      permissions,
+    );
+
+    if (!canSeeAll && userId) {
+      // Non-admin/owner can only see CRs created by themselves
+      where.requestedById = userId;
+    } else if (query.requestedById) {
+      where.requestedById = query.requestedById;
+    }
 
     if (query.projectId) {
       where.projectId = query.projectId;
@@ -345,17 +459,28 @@ export class ChangeRequestService {
       where.priority = query.priority;
     }
 
-    if (query.requestedById) {
-      where.requestedById = query.requestedById;
-    }
-
     if (query.dateFrom || query.dateTo) {
       where.createdAt = {};
       if (query.dateFrom) {
-        where.createdAt.gte = new Date(query.dateFrom);
+        const fromDate = new Date(query.dateFrom);
+        if (typeof query.dateFrom === 'string' && !query.dateFrom.includes('T')) {
+          fromDate.setUTCHours(0, 0, 0, 0);
+        }
+        where.createdAt.gte = fromDate;
       }
       if (query.dateTo) {
-        where.createdAt.lte = new Date(query.dateTo);
+        const toDate = new Date(query.dateTo);
+        if (typeof query.dateTo === 'string' && !query.dateTo.includes('T')) {
+          toDate.setUTCHours(23, 59, 59, 999);
+        } else if (
+          toDate.getUTCHours() === 0 &&
+          toDate.getUTCMinutes() === 0 &&
+          toDate.getUTCSeconds() === 0 &&
+          toDate.getUTCMilliseconds() === 0
+        ) {
+          toDate.setUTCHours(23, 59, 59, 999);
+        }
+        where.createdAt.lte = toDate;
       }
     }
 
@@ -430,16 +555,31 @@ export class ChangeRequestService {
   }
 
   /**
-   * Get 7 aggregate statistics for CR stats bar
+   * Get 7 aggregate statistics for CR stats bar.
+   * Admins and Owners see organization-wide stats; others only see stats for their own CRs.
    */
   async getStats(
     organizationId: string,
     projectId?: string,
+    userId?: string,
+    userRoleName?: string,
+    permissions?: string[],
   ): Promise<CRStatsResponse> {
+    const canSeeAll = await this.isUserAdminOrOwner(
+      userId,
+      organizationId,
+      userRoleName,
+      permissions,
+    );
+
     const baseWhere: Prisma.ChangeRequestWhereInput = {
       organizationId,
       deletedAt: null,
     };
+
+    if (!canSeeAll && userId) {
+      baseWhere.requestedById = userId;
+    }
 
     if (projectId) {
       baseWhere.projectId = projectId;
@@ -490,7 +630,13 @@ export class ChangeRequestService {
   /**
    * Find single CR by ID with all relations
    */
-  async findById(id: string, organizationId: string) {
+  async findById(
+    id: string,
+    organizationId: string,
+    userId?: string,
+    userRoleName?: string,
+    permissions?: string[],
+  ) {
     const cr = await this.prisma.changeRequest.findFirst({
       where: { id, organizationId, deletedAt: null },
       include: {
@@ -573,6 +719,27 @@ export class ChangeRequestService {
       throw new NotFoundException('Change request not found');
     }
 
+    if (userId) {
+      const canSeeAll = await this.isUserAdminOrOwner(
+        userId,
+        organizationId,
+        userRoleName,
+        permissions,
+      );
+
+      if (!canSeeAll) {
+        const isRequester = cr.requestedById === userId;
+        const isApprover = cr.approvers?.some(
+          (a) => a.orgMember?.user?.id === userId,
+        );
+        if (!isRequester && !isApprover) {
+          throw new ForbiddenException(
+            'You do not have permission to view this change request.',
+          );
+        }
+      }
+    }
+
     return cr;
   }
 
@@ -608,6 +775,52 @@ export class ChangeRequestService {
           : undefined,
       },
     });
+
+    if (dto.approverMemberIds !== undefined) {
+      if (dto.approverMemberIds.length > 0) {
+        const eligibleCount = await this.prisma.organizationMember.count({
+          where: {
+            id: { in: dto.approverMemberIds },
+            organizationId,
+            removedAt: null,
+            role: {
+              deletedAt: null,
+              permissions: {
+                some: {
+                  isActive: true,
+                  deletedAt: null,
+                  permission: {
+                    code: {
+                  in: ['cr.approve_reject', '*'],
+                },
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      },
+    });
+
+        if (eligibleCount !== dto.approverMemberIds.length) {
+          throw new BadRequestException(
+            'One or more selected approvers do not have permission to approve change requests.',
+          );
+        }
+      }
+
+      await this.prisma.cRApprover.deleteMany({
+        where: { changeRequestId: id },
+      });
+      if (dto.approverMemberIds.length > 0) {
+        await this.prisma.cRApprover.createMany({
+          data: dto.approverMemberIds.map((orgMemberId) => ({
+            changeRequestId: id,
+            orgMemberId,
+            status: ApprovalStatus.PENDING,
+          })),
+        });
+      }
+    }
 
     await this.activityService.logActivity({
       changeRequestId: id,
@@ -1083,11 +1296,27 @@ export class ChangeRequestService {
   ) {
     await this.findCRInOrg(id, organizationId);
 
-    // Verify member belongs to this organization
+    // Verify member belongs to this organization and has cr.approve_reject permission
     const member = await this.prisma.organizationMember.findFirst({
       where: {
         id: dto.orgMemberId,
         organizationId,
+        removedAt: null,
+        role: {
+          deletedAt: null,
+          permissions: {
+            some: {
+              isActive: true,
+              deletedAt: null,
+              permission: {
+                code: {
+                  in: ['cr.approve_reject', '*'],
+                },
+                deletedAt: null,
+              },
+            },
+          },
+        },
       },
       include: {
         user: { select: { firstName: true, lastName: true } },
@@ -1096,7 +1325,7 @@ export class ChangeRequestService {
 
     if (!member) {
       throw new NotFoundException(
-        'Organization member not found in this organization',
+        'Organization member not found or does not have permission to approve change requests.',
       );
     }
 

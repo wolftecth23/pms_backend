@@ -1,6 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CRPriority, CRType } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class UpdateCRDto {
   @ApiPropertyOptional()
@@ -22,4 +28,14 @@ export class UpdateCRDto {
   @IsOptional()
   @IsDateString()
   expectedDeliveryDate?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'List of OrgMember IDs assigned as approvers',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  approverMemberIds?: string[];
 }
+

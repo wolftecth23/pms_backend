@@ -62,9 +62,15 @@ export class ChangeRequestController {
   @RequirePermissions('cr.view')
   @ApiOperation({ summary: 'List Change Requests for organization' })
   async findAll(@Req() req: AuthRequest, @Query() query: CRQueryDto) {
-    const { organizationId } =
+    const { organizationId, userId, roleName, permissions } =
       this.contextService.resolveOrganizationContext(req);
-    const result = await this.crService.findAll(organizationId, query);
+    const result = await this.crService.findAll(
+      organizationId,
+      query,
+      userId,
+      roleName,
+      permissions,
+    );
     return {
       success: true,
       data: result.data,
@@ -82,9 +88,15 @@ export class ChangeRequestController {
     @Req() req: AuthRequest,
     @Query('projectId') projectId?: string,
   ) {
-    const { organizationId } =
+    const { organizationId, userId, roleName, permissions } =
       this.contextService.resolveOrganizationContext(req);
-    const stats = await this.crService.getStats(organizationId, projectId);
+    const stats = await this.crService.getStats(
+      organizationId,
+      projectId,
+      userId,
+      roleName,
+      permissions,
+    );
     return {
       success: true,
       data: stats,
@@ -102,13 +114,14 @@ export class ChangeRequestController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ) {
-    const { organizationId } =
+    const { organizationId, userId } =
       this.contextService.resolveOrganizationContext(req);
     const data = await this.crService.getApproverCandidates(
       organizationId,
       page ? Number(page) : undefined,
       limit ? Number(limit) : undefined,
       search,
+      userId,
     );
     return {
       success: true,
@@ -144,9 +157,15 @@ export class ChangeRequestController {
   @RequirePermissions('cr.view')
   @ApiOperation({ summary: 'Get Change Request details by ID' })
   async findOne(@Req() req: AuthRequest, @Param('id') id: string) {
-    const { organizationId } =
+    const { organizationId, userId, roleName, permissions } =
       this.contextService.resolveOrganizationContext(req);
-    const data = await this.crService.findById(id, organizationId);
+    const data = await this.crService.findById(
+      id,
+      organizationId,
+      userId,
+      roleName,
+      permissions,
+    );
     return {
       success: true,
       data,

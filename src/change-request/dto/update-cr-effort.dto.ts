@@ -22,17 +22,12 @@ export class EffortRowDto {
   @ApiProperty({ example: 8, default: 0 })
   @IsNumber()
   @Min(0)
-  minHours!: number;
+  estimatedHours!: number;
 
-  @ApiProperty({ example: 16, default: 0 })
+  @ApiProperty({ example: 10, default: 0 })
   @IsNumber()
   @Min(0)
-  maxHours!: number;
-
-  @ApiProperty({ example: 12, default: 0 })
-  @IsNumber()
-  @Min(0)
-  proposedHours!: number;
+  purchaseHours!: number;
 
   @ApiPropertyOptional()
   @IsOptional()

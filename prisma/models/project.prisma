@@ -46,6 +46,10 @@ model Project {
   isArchived Boolean @default(false)
   isFavorite Boolean @default(false)
 
+  purchaseHours  Float?
+  estimatedHours Float?
+  spentHours     Float?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?

@@ -176,6 +176,18 @@ export class ProjectService {
       }
     }
 
+    if (
+      dto.purchaseHours !== undefined &&
+      dto.purchaseHours !== null &&
+      dto.estimatedHours !== undefined &&
+      dto.estimatedHours !== null &&
+      dto.estimatedHours > dto.purchaseHours
+    ) {
+      throw new BadRequestException(
+        'Estimated hours cannot exceed purchased hours.',
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const project = await tx.project.create({
         data: {
@@ -194,6 +206,10 @@ export class ProjectService {
 
           startDate: dto.startDate || null,
           dueDate: dto.dueDate || null,
+
+          purchaseHours: dto.purchaseHours ?? null,
+          estimatedHours: dto.estimatedHours ?? null,
+          spentHours: 0,
         },
         include: {
           status: {
@@ -388,6 +404,10 @@ export class ProjectService {
 
           isArchived: true,
           isFavorite: true,
+
+          purchaseHours: true,
+          estimatedHours: true,
+          spentHours: true,
 
           createdAt: true,
 
@@ -796,6 +816,8 @@ export class ProjectService {
         statusId: true,
         startDate: true,
         dueDate: true,
+        purchaseHours: true,
+        estimatedHours: true,
         organizationId: true,
         workspaceId: true,
       },
@@ -854,6 +876,27 @@ export class ProjectService {
       );
     }
 
+    const purchaseHours =
+      dto.purchaseHours !== undefined
+        ? dto.purchaseHours
+        : project.purchaseHours;
+    const estimatedHours =
+      dto.estimatedHours !== undefined
+        ? dto.estimatedHours
+        : project.estimatedHours;
+
+    if (
+      purchaseHours !== null &&
+      purchaseHours !== undefined &&
+      estimatedHours !== null &&
+      estimatedHours !== undefined &&
+      estimatedHours > purchaseHours
+    ) {
+      throw new BadRequestException(
+        'Estimated hours cannot exceed purchased hours.',
+      );
+    }
+
     const uniqueMemberIds = [
       ...new Set([context.userId, ...(dto.projectMemberIds ?? [])]),
     ];
@@ -909,6 +952,11 @@ export class ProjectService {
 
           isArchived: dto.isArchived || false,
           isFavorite: dto.isFavorite || false,
+
+          purchaseHours:
+            dto.purchaseHours !== undefined ? dto.purchaseHours : undefined,
+          estimatedHours:
+            dto.estimatedHours !== undefined ? dto.estimatedHours : undefined,
         },
         include: {
           status: {
@@ -1225,5 +1273,19 @@ export class ProjectService {
       success: true,
       message: 'Attachment deleted successfully.',
     };
+  }
+
+  async syncProjectSpentHours(projectId: string, tx?: any): Promise<void> {
+    const client = tx ?? this.prisma;
+    const agg = await client.task.aggregate({
+      where: { projectId, deletedAt: null },
+      _sum: { spentMinutes: true },
+    });
+    const spentMinutes = agg._sum?.spentMinutes ?? 0;
+    const spentHours = parseFloat((spentMinutes / 60).toFixed(2));
+    await client.project.update({
+      where: { id: projectId },
+      data: { spentHours },
+    });
   }
 }

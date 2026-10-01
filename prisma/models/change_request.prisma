@@ -10,9 +10,8 @@ model ChangeRequest {
   requestedById        String
   requestDate          DateTime      @default(now())
   expectedDeliveryDate DateTime?
-  totalMinHours        Float         @default(0)
-  totalMaxHours        Float         @default(0)
-  totalProposedHours   Float         @default(0)
+  totalEstimatedHours  Float         @default(0)
+  totalPurchaseHours   Float         @default(0)
   resolvedAt           DateTime?
 
   createdAt            DateTime      @default(now())
@@ -62,9 +61,8 @@ model CREffortRow {
   id              String        @id @default(cuid())
   changeRequestId String
   role            String
-  minHours        Float         @default(0)
-  maxHours        Float         @default(0)
-  proposedHours   Float         @default(0)
+  estimatedHours  Float         @default(0)
+  purchaseHours   Float         @default(0)
   notes           String?
   order           Int           @default(0)
 

@@ -300,6 +300,19 @@ export class TaskService {
 
       await this.taskActivityService.logMany(activitiesToCreate, tx);
 
+      if (dto.spentMinutes !== undefined && dto.spentMinutes !== null) {
+        const spentAgg = await tx.task.aggregate({
+          where: { projectId, deletedAt: null },
+          _sum: { spentMinutes: true },
+        });
+        const totalSpentMinutes = spentAgg._sum?.spentMinutes ?? 0;
+        const spentHours = parseFloat((totalSpentMinutes / 60).toFixed(2));
+        await tx.project.update({
+          where: { id: projectId },
+          data: { spentHours },
+        });
+      }
+
       return {
         message: 'Task created successfully.',
         data: {
@@ -954,6 +967,19 @@ export class TaskService {
           },
         },
       });
+
+      if (dto.spentMinutes !== undefined) {
+        const spentAgg = await tx.task.aggregate({
+          where: { projectId: task.projectId, deletedAt: null },
+          _sum: { spentMinutes: true },
+        });
+        const totalSpentMinutes = spentAgg._sum?.spentMinutes ?? 0;
+        const spentHours = parseFloat((totalSpentMinutes / 60).toFixed(2));
+        await tx.project.update({
+          where: { id: task.projectId },
+          data: { spentHours },
+        });
+      }
 
       // Update assignees only if provided in payload
       if (dto.assigneeIds !== undefined && projectMemberIds !== undefined) {

@@ -220,15 +220,13 @@ export class ChangeRequestService {
     const { crNumber } = await generateCRNumber(this.prisma, dto.projectId);
 
     // Calculate totals if effort rows provided
-    let totalMinHours = 0;
-    let totalMaxHours = 0;
-    let totalProposedHours = 0;
+    let totalEstimatedHours = 0;
+    let totalPurchaseHours = 0;
 
     if (dto.effortRows?.length) {
       dto.effortRows.forEach((row) => {
-        totalMinHours += Number(row.minHours || 0);
-        totalMaxHours += Number(row.maxHours || 0);
-        totalProposedHours += Number(row.proposedHours || 0);
+        totalEstimatedHours += Number(row.estimatedHours || 0);
+        totalPurchaseHours += Number(row.purchaseHours || 0);
       });
     }
 
@@ -277,9 +275,8 @@ export class ChangeRequestService {
           expectedDeliveryDate: dto.expectedDeliveryDate
             ? new Date(dto.expectedDeliveryDate)
             : null,
-          totalMinHours,
-          totalMaxHours,
-          totalProposedHours,
+          totalEstimatedHours,
+          totalPurchaseHours,
           description: dto.description
             ? {
                 create: {
@@ -299,9 +296,8 @@ export class ChangeRequestService {
             ? {
                 create: dto.effortRows.map((row, index) => ({
                   role: row.role,
-                  minHours: Number(row.minHours || 0),
-                  maxHours: Number(row.maxHours || 0),
-                  proposedHours: Number(row.proposedHours || 0),
+                  estimatedHours: Number(row.estimatedHours || 0),
+                  purchaseHours: Number(row.purchaseHours || 0),
                   notes: row.notes,
                   order: row.order ?? index,
                 })),
@@ -612,7 +608,7 @@ export class ChangeRequestService {
       }),
       this.prisma.changeRequest.aggregate({
         where: { ...baseWhere, status: CRStatus.APPROVED },
-        _sum: { totalProposedHours: true },
+        _sum: { totalPurchaseHours: true },
       }),
     ]);
 
@@ -623,7 +619,7 @@ export class ChangeRequestService {
       pendingModification,
       rejected,
       approved,
-      approvedHours: approvedHoursSum._sum.totalProposedHours || 0,
+      approvedHours: approvedHoursSum._sum.totalPurchaseHours || 0,
     };
   }
 
@@ -922,14 +918,12 @@ export class ChangeRequestService {
       );
     }
 
-    let totalMinHours = 0;
-    let totalMaxHours = 0;
-    let totalProposedHours = 0;
+    let totalEstimatedHours = 0;
+    let totalPurchaseHours = 0;
 
     dto.rows.forEach((row) => {
-      totalMinHours += Number(row.minHours || 0);
-      totalMaxHours += Number(row.maxHours || 0);
-      totalProposedHours += Number(row.proposedHours || 0);
+      totalEstimatedHours += Number(row.estimatedHours || 0);
+      totalPurchaseHours += Number(row.purchaseHours || 0);
     });
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -944,9 +938,8 @@ export class ChangeRequestService {
           data: dto.rows.map((row, index) => ({
             changeRequestId: id,
             role: row.role,
-            minHours: Number(row.minHours || 0),
-            maxHours: Number(row.maxHours || 0),
-            proposedHours: Number(row.proposedHours || 0),
+            estimatedHours: Number(row.estimatedHours || 0),
+            purchaseHours: Number(row.purchaseHours || 0),
             notes: row.notes,
             order: row.order ?? index,
           })),
@@ -957,9 +950,8 @@ export class ChangeRequestService {
       const updatedCR = await tx.changeRequest.update({
         where: { id },
         data: {
-          totalMinHours,
-          totalMaxHours,
-          totalProposedHours,
+          totalEstimatedHours,
+          totalPurchaseHours,
         },
         include: {
           effortRows: {
@@ -976,12 +968,11 @@ export class ChangeRequestService {
       userId,
       eventType: 'EFFORT_UPDATED',
       newValue: {
-        totalMinHours,
-        totalMaxHours,
-        totalProposedHours,
+        totalEstimatedHours,
+        totalPurchaseHours,
         rowCount: dto.rows.length,
       },
-      message: `Effort estimation updated: ${totalProposedHours} proposed hours`,
+      message: `Effort estimation updated: ${totalPurchaseHours} purchase hours, ${totalEstimatedHours} estimated hours`,
     });
 
     return result;
@@ -1128,12 +1119,27 @@ export class ChangeRequestService {
       `${approver.orgMember.user.firstName} ${approver.orgMember.user.lastName || ''}`.trim();
 
     if (allApproved) {
-      await this.prisma.changeRequest.update({
-        where: { id },
-        data: {
-          status: CRStatus.APPROVED,
-          resolvedAt: new Date(),
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.changeRequest.update({
+          where: { id },
+          data: {
+            status: CRStatus.APPROVED,
+            resolvedAt: new Date(),
+          },
+        });
+
+        if (
+          (cr.totalPurchaseHours && cr.totalPurchaseHours > 0) ||
+          (cr.totalEstimatedHours && cr.totalEstimatedHours > 0)
+        ) {
+          await tx.project.update({
+            where: { id: cr.projectId },
+            data: {
+              purchaseHours: { increment: cr.totalPurchaseHours || 0 },
+              estimatedHours: { increment: cr.totalEstimatedHours || 0 },
+            },
+          });
+        }
       });
 
       await this.activityService.logActivity({

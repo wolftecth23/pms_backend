@@ -6,8 +6,10 @@ import {
   IsDateString,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 
 export class CreateProjectDto {
@@ -94,4 +96,16 @@ export class CreateProjectDto {
   @IsOptional()
   @IsBoolean()
   isFavorite?: boolean;
+
+  @ApiPropertyOptional({ example: 40 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  purchaseHours?: number;
+
+  @ApiPropertyOptional({ example: 35 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  estimatedHours?: number;
 }

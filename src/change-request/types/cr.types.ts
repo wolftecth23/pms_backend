@@ -20,9 +20,8 @@ export interface CRStatsResponse {
 export interface CREffortRowItem {
   id?: string;
   role: string;
-  minHours: number;
-  maxHours: number;
-  proposedHours: number;
+  estimatedHours: number;
+  purchaseHours: number;
   notes?: string;
   order?: number;
 }

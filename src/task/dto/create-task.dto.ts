@@ -95,4 +95,11 @@ export class CreateTaskDto {
   @IsArray()
   @IsString({ each: true })
   tagIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Team/domain this task belongs to (e.g. Frontend, Backend)',
+  })
+  @IsOptional()
+  @IsString()
+  team?: string;
 }

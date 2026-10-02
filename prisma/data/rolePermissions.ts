@@ -77,6 +77,11 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'cr.approve_reject',
     'cr.cancel',
     'cr.manage_approvers',
+
+    'team.view',
+    'team.create',
+    'team.update',
+    'team.delete',
   ],
 
   Admin: [
@@ -155,6 +160,11 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'cr.approve_reject',
     'cr.cancel',
     'cr.manage_approvers',
+
+    'team.view',
+    'team.create',
+    'team.update',
+    'team.delete',
   ],
 
   'Project Manager': [

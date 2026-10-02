@@ -18,6 +18,8 @@ export const PermissionModule = {
   ROLE: 'ROLE',
 
   CHANGE_REQUEST: 'CHANGE_REQUEST',
+
+  TEAM: 'TEAM',
 } as const;
 
 export type PermissionModule =
@@ -517,5 +519,31 @@ export const DEFAULT_PERMISSIONS = [
     name: 'Manage Change Request Approvers',
     description: 'Add or remove approvers from the org member pool',
     module: PermissionModule.CHANGE_REQUEST,
+  },
+
+  // Team
+  {
+    code: 'team.view',
+    name: 'View Teams',
+    description: 'View organization teams',
+    module: PermissionModule.TEAM,
+  },
+  {
+    code: 'team.create',
+    name: 'Create Team',
+    description: 'Create new teams in the organization',
+    module: PermissionModule.TEAM,
+  },
+  {
+    code: 'team.update',
+    name: 'Update Team',
+    description: 'Edit team details',
+    module: PermissionModule.TEAM,
+  },
+  {
+    code: 'team.delete',
+    name: 'Delete Team',
+    description: 'Delete teams from the organization',
+    module: PermissionModule.TEAM,
   },
 ];

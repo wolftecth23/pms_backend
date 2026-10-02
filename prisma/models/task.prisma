@@ -100,6 +100,8 @@ model Task {
 
   spentMinutes Int?
 
+  team String? // e.g. "Frontend", "Backend", "DevOps", "Design"
+
   order Int @default(0)
 
   createdById String

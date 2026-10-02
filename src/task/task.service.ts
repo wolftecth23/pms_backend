@@ -180,6 +180,8 @@ export class TaskService {
 
           spentMinutes: dto.spentMinutes ?? null,
 
+          team: dto.team ?? null,
+
           order: nextOrder,
         },
 
@@ -472,6 +474,7 @@ export class TaskService {
         purchaseMinutes: true,
         estimatedMinutes: true,
         spentMinutes: true,
+        team: true,
         order: true,
         createdById: true,
         createdAt: true,
@@ -926,6 +929,10 @@ export class TaskService {
 
       if (dto.spentMinutes !== undefined) {
         updateData.spentMinutes = dto.spentMinutes;
+      }
+
+      if (dto.team !== undefined) {
+        updateData.team = dto.team;
       }
 
       const updatedTask = await tx.task.update({

@@ -32,6 +32,7 @@ model Organization {
   project        Project[]
   role           Role[]
   changeRequests ChangeRequest[]
+  teams          OrgTeam[]
 
   @@map("organizations")
 }

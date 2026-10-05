@@ -99,7 +99,9 @@ export class TaskActivityService {
       throw new ForbiddenException('You do not have access to this resource.');
     }
 
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
     const [total, activities] = await Promise.all([
       this.prisma.taskActivity.count({
@@ -109,7 +111,7 @@ export class TaskActivityService {
         where: { taskId },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: limitNum,
         include: {
           actor: {
             select: {
@@ -127,10 +129,10 @@ export class TaskActivityService {
     return {
       data: activities,
       pagination: {
-        page,
-        limit,
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limitNum),
       },
     };
   }

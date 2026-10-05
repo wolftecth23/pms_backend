@@ -1680,8 +1680,8 @@ export class TaskService {
     const context = await this.contextService.resolveContext(request);
     return this.taskActivityService.getTaskActivities(
       taskId,
-      query.page,
-      Number(query.limit),
+      Number(query.page) || 1,
+      Number(query.limit) || 20,
       context,
     );
   }

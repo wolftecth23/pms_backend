@@ -18,6 +18,7 @@ import { TagModule } from './tag/tag.module';
 import { TaskModule } from './task/task.module';
 import { WorkspaceMemberModule } from './workspace-member/workspace-member.module';
 import { OrgTeamModule } from './org-team/org-team.module';
+import { WorkspaceModule } from './workspace/workspace.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { OrgTeamModule } from './org-team/org-team.module';
     RoleModule,
     ChangeRequestModule,
     OrgTeamModule,
+    WorkspaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

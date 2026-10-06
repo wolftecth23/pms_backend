@@ -18,4 +18,23 @@ export class OrganizationAccessService {
 
     return organization;
   }
+
+  async findOrgMemberOrThrow(userId: string, organizationId: string) {
+    const member = await this.prisma.organizationMember.findFirst({
+      where: {
+        userId,
+        organizationId,
+        removedAt: null,
+      },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!member) {
+      throw new NotFoundException('Organization member not found.');
+    }
+
+    return member;
+  }
 }

@@ -19,6 +19,9 @@ import { ProjectStatusServiceValidation } from '../common/validation/project-sta
 import { TaskStatusServiceValidation } from '../common/validation/task-status.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectTaskStatusDto } from './dto/create-project-task-status.dto';
+import { ReorderProjectTaskStatusesDto } from './dto/reorder-project-task-statuses.dto';
+import { UpdateProjectTaskStatusDto } from './dto/update-project-task-status.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 export interface ProjectContext {
@@ -1287,5 +1290,326 @@ export class ProjectService {
       where: { id: projectId },
       data: { spentHours },
     });
+  }
+
+  // ─── PROJECT TASK STATUSES ────────────────────────────────────────────────
+
+  async getProjectTaskStatuses(projectId: string, _request: AuthRequest) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        workspaceId: true,
+        taskStatusOrder: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const statuses =
+      await this.taskStatusServiceValidation.findAvailableTaskStatuses(
+        project.organizationId,
+        project.workspaceId,
+        projectId,
+      );
+
+    return {
+      success: true,
+      data: statuses,
+    };
+  }
+
+  async addProjectTaskStatus(
+    projectId: string,
+    dto: CreateProjectTaskStatusDto,
+    _request: AuthRequest,
+  ) {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        id: projectId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        workspaceId: true,
+        taskStatusOrder: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const trimmedName = dto.name.trim();
+
+    const existing = await this.prisma.taskStatus.findFirst({
+      where: {
+        OR: [
+          {
+            scope: StatusScope.SYSTEM,
+            name: { equals: trimmedName, mode: 'insensitive' },
+          },
+          {
+            scope: StatusScope.ORGANIZATION,
+            targetId: project.organizationId,
+            name: { equals: trimmedName, mode: 'insensitive' },
+          },
+          {
+            scope: StatusScope.PROJECT,
+            targetId: projectId,
+            name: { equals: trimmedName, mode: 'insensitive' },
+          },
+        ],
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `A task status with name "${trimmedName}" already exists for this project.`,
+      );
+    }
+
+    const maxProjectStatus = await this.prisma.taskStatus.findFirst({
+      where: {
+        scope: StatusScope.PROJECT,
+        targetId: projectId,
+      },
+      orderBy: { order: 'desc' },
+      select: { order: true },
+    });
+    const nextOrder = (maxProjectStatus?.order ?? 0) + 1;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault) {
+        await tx.taskStatus.updateMany({
+          where: {
+            scope: StatusScope.PROJECT,
+            targetId: projectId,
+            isDefault: true,
+          },
+          data: { isDefault: false },
+        });
+      }
+
+      const created = await tx.taskStatus.create({
+        data: {
+          scope: StatusScope.PROJECT,
+          targetId: projectId,
+          projectId: projectId,
+          name: trimmedName,
+          color: dto.color ?? '#8B5CF6',
+          order: nextOrder,
+          isDefault: dto.isDefault ?? false,
+          isClosed: dto.isClosed ?? false,
+        },
+      });
+
+      const currentOrder = project.taskStatusOrder ?? [];
+      if (currentOrder.length > 0) {
+        await tx.project.update({
+          where: { id: projectId },
+          data: {
+            taskStatusOrder: [...currentOrder, created.id],
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Task status created successfully.',
+        data: created,
+      };
+    });
+  }
+
+  async updateProjectTaskStatus(
+    projectId: string,
+    statusId: string,
+    dto: UpdateProjectTaskStatusDto,
+    _request: AuthRequest,
+  ) {
+    const status = await this.prisma.taskStatus.findUnique({
+      where: { id: statusId },
+    });
+
+    if (!status) {
+      throw new NotFoundException('Task status not found.');
+    }
+
+    if (status.scope !== StatusScope.PROJECT || status.targetId !== projectId) {
+      throw new BadRequestException(
+        'Only project-scoped task statuses can be modified.',
+      );
+    }
+
+    if (dto.name && dto.name.trim() !== status.name) {
+      const trimmedName = dto.name.trim();
+      const project = await this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { organizationId: true },
+      });
+
+      const duplicate = await this.prisma.taskStatus.findFirst({
+        where: {
+          id: { not: statusId },
+          OR: [
+            {
+              scope: StatusScope.SYSTEM,
+              name: { equals: trimmedName, mode: 'insensitive' },
+            },
+            {
+              scope: StatusScope.ORGANIZATION,
+              targetId: project?.organizationId,
+              name: { equals: trimmedName, mode: 'insensitive' },
+            },
+            {
+              scope: StatusScope.PROJECT,
+              targetId: projectId,
+              name: { equals: trimmedName, mode: 'insensitive' },
+            },
+          ],
+        },
+      });
+
+      if (duplicate) {
+        throw new ConflictException(
+          `Task status with name "${trimmedName}" already exists.`,
+        );
+      }
+    }
+
+    const updated = await this.prisma.taskStatus.update({
+      where: { id: statusId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.color !== undefined && { color: dto.color }),
+        ...(dto.isDefault !== undefined && { isDefault: dto.isDefault }),
+        ...(dto.isClosed !== undefined && { isClosed: dto.isClosed }),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Task status updated successfully.',
+      data: updated,
+    };
+  }
+
+  async reorderProjectTaskStatuses(
+    projectId: string,
+    dto: ReorderProjectTaskStatusesDto,
+    request: AuthRequest,
+  ) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: null },
+      select: {
+        id: true,
+        organizationId: true,
+        workspaceId: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const availableStatuses =
+      await this.taskStatusServiceValidation.findAvailableTaskStatuses(
+        project.organizationId,
+        project.workspaceId,
+        projectId,
+      );
+
+    const availableIds = new Set(availableStatuses.map((s) => s.id));
+    const invalidIds = dto.statusIds.filter((id) => !availableIds.has(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        'Some status IDs do not belong to this project.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id: projectId },
+        data: { taskStatusOrder: dto.statusIds },
+      });
+
+      const projectScoped = availableStatuses.filter(
+        (s) => s.scope === StatusScope.PROJECT,
+      );
+      for (const s of projectScoped) {
+        const idx = dto.statusIds.indexOf(s.id);
+        if (idx !== -1) {
+          await tx.taskStatus.update({
+            where: { id: s.id },
+            data: { order: idx + 1 },
+          });
+        }
+      }
+    });
+
+    return this.getProjectTaskStatuses(projectId, request);
+  }
+
+  async deleteProjectTaskStatus(
+    projectId: string,
+    statusId: string,
+    _request: AuthRequest,
+  ) {
+    const status = await this.prisma.taskStatus.findUnique({
+      where: { id: statusId },
+    });
+
+    if (!status) {
+      throw new NotFoundException('Task status not found.');
+    }
+
+    if (status.scope !== StatusScope.PROJECT || status.targetId !== projectId) {
+      throw new BadRequestException(
+        'Only project-scoped task statuses can be deleted.',
+      );
+    }
+
+    const count = await this.prisma.task.count({
+      where: { taskStatusId: statusId, deletedAt: null },
+    });
+
+    if (count > 0) {
+      throw new BadRequestException(
+        'Cannot delete status because it is currently assigned to one or more tasks.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.taskStatus.delete({ where: { id: statusId } });
+
+      const project = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { taskStatusOrder: true },
+      });
+
+      if (project?.taskStatusOrder?.includes(statusId)) {
+        await tx.project.update({
+          where: { id: projectId },
+          data: {
+            taskStatusOrder: project.taskStatusOrder.filter(
+              (id) => id !== statusId,
+            ),
+          },
+        });
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Task status deleted successfully.',
+    };
   }
 }

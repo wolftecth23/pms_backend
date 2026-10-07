@@ -65,6 +65,7 @@ export class TaskController {
   findByProject(
     @Query('projectId') projectId: string,
     @Query('assigneeIds') rawAssigneeIds: string | undefined,
+    @Query('statusFilter') statusFilter: string | undefined,
     @Request() request: AuthRequest,
   ) {
     const assigneeIds = rawAssigneeIds
@@ -73,7 +74,12 @@ export class TaskController {
           .map((s) => s.trim())
           .filter(Boolean)
       : [];
-    return this.taskService.findByProject(projectId, request, assigneeIds);
+    return this.taskService.findByProject(
+      projectId,
+      request,
+      assigneeIds,
+      statusFilter,
+    );
   }
 
   @Patch('change-status')

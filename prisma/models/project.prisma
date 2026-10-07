@@ -49,6 +49,7 @@ model Project {
   purchaseHours  Float?
   estimatedHours Float?
   spentHours     Float?
+  taskStatusOrder String[] @default([])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

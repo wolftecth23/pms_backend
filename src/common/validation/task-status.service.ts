@@ -75,7 +75,7 @@ export class TaskStatusServiceValidation {
       });
     }
 
-    return this.prisma.taskStatus.findMany({
+    const statuses = await this.prisma.taskStatus.findMany({
       where: {
         OR: scopes,
       },
@@ -85,8 +85,34 @@ export class TaskStatusServiceValidation {
         name: true,
         order: true,
         color: true,
+        isDefault: true,
+        isClosed: true,
       },
       orderBy: [{ order: 'asc' }, { name: 'asc' }],
     });
+
+    if (projectId) {
+      const project = await this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { taskStatusOrder: true },
+      });
+
+      const taskStatusOrder = project?.taskStatusOrder ?? [];
+      if (taskStatusOrder.length > 0) {
+        const orderMap = new Map<string, number>();
+        taskStatusOrder.forEach((id, idx) => orderMap.set(id, idx));
+
+        statuses.sort((a, b) => {
+          const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999 + a.order;
+          const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999 + b.order;
+          if (idxA !== idxB) {
+            return idxA - idxB;
+          }
+          return a.name.localeCompare(b.name);
+        });
+      }
+    }
+
+    return statuses;
   }
 }

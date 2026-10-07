@@ -25,6 +25,9 @@ import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard';
 import { StorageService } from '../common/storage/storage.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectTaskStatusDto } from './dto/create-project-task-status.dto';
+import { ReorderProjectTaskStatusesDto } from './dto/reorder-project-task-statuses.dto';
+import { UpdateProjectTaskStatusDto } from './dto/update-project-task-status.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectService } from './project.service';
 
@@ -175,5 +178,80 @@ export class ProjectController {
     @Request() request: AuthRequest,
   ) {
     return this.projectService.deleteProjectAttachment(attachmentId, request);
+  }
+
+  // ─── PROJECT TASK STATUSES ────────────────────────────────────────────────
+
+  @Get(':projectId/task-statuses')
+  @RequirePermissions('project.view')
+  @RequireProjectPermissions('project.view')
+  @ApiOperation({ summary: 'Get all task statuses available to a project' })
+  getProjectTaskStatuses(
+    @Param('projectId') projectId: string,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.getProjectTaskStatuses(projectId, request);
+  }
+
+  @Post(':projectId/task-statuses')
+  @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
+  @ApiOperation({ summary: 'Add a project-scoped task status' })
+  addProjectTaskStatus(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateProjectTaskStatusDto,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.addProjectTaskStatus(projectId, dto, request);
+  }
+
+  @Patch(':projectId/task-statuses/reorder')
+  @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
+  @ApiOperation({ summary: 'Reorder project task statuses' })
+  reorderProjectTaskStatuses(
+    @Param('projectId') projectId: string,
+    @Body() dto: ReorderProjectTaskStatusesDto,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.reorderProjectTaskStatuses(
+      projectId,
+      dto,
+      request,
+    );
+  }
+
+  @Patch(':projectId/task-statuses/:statusId')
+  @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
+  @ApiOperation({ summary: 'Update a project-scoped task status' })
+  updateProjectTaskStatus(
+    @Param('projectId') projectId: string,
+    @Param('statusId') statusId: string,
+    @Body() dto: UpdateProjectTaskStatusDto,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.updateProjectTaskStatus(
+      projectId,
+      statusId,
+      dto,
+      request,
+    );
+  }
+
+  @Delete(':projectId/task-statuses/:statusId')
+  @RequirePermissions('project.update')
+  @RequireProjectPermissions('project.update')
+  @ApiOperation({ summary: 'Delete a project-scoped task status' })
+  deleteProjectTaskStatus(
+    @Param('projectId') projectId: string,
+    @Param('statusId') statusId: string,
+    @Request() request: AuthRequest,
+  ) {
+    return this.projectService.deleteProjectTaskStatus(
+      projectId,
+      statusId,
+      request,
+    );
   }
 }

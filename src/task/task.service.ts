@@ -329,6 +329,7 @@ export class TaskService {
     projectId: string,
     request: AuthRequest,
     assigneeIds: string[] = [],
+    statusFilter?: string,
   ) {
     if (!projectId) {
       throw new BadRequestException('Project ID is required.');
@@ -378,6 +379,16 @@ export class TaskService {
       projectId,
       deletedAt: null,
     };
+
+    if (statusFilter === 'open') {
+      where.status = {
+        isClosed: false,
+      };
+    } else if (statusFilter === 'closed') {
+      where.status = {
+        isClosed: true,
+      };
+    }
 
     const hasUnassigned = assigneeIds.some(
       (id) => id.toLowerCase() === 'unassigned',
@@ -484,6 +495,9 @@ export class TaskService {
           select: {
             id: true,
             name: true,
+            color: true,
+            isClosed: true,
+            isDefault: true,
           },
         },
         priority: {

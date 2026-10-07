@@ -93,33 +93,21 @@ export const DEFAULT_PERMISSIONS = [
     module: PermissionModule.ORGANIZATION_MEMBER,
   },
   {
-    code: 'organization_member.invite',
-    name: 'Invite Organization Members',
-    description: 'Invite users to the organization',
+    code: 'organization_member.add',
+    name: 'Add Organization Members',
+    description: 'Add members to the organization',
+    module: PermissionModule.ORGANIZATION_MEMBER,
+  },
+  {
+    code: 'organization_member.update',
+    name: 'Update Organization Members',
+    description: 'Update organization member details and roles',
     module: PermissionModule.ORGANIZATION_MEMBER,
   },
   {
     code: 'organization_member.remove',
     name: 'Remove Organization Members',
     description: 'Remove users from the organization',
-    module: PermissionModule.ORGANIZATION_MEMBER,
-  },
-  {
-    code: 'organization_member.change_role',
-    name: 'Change Organization Member Role',
-    description: 'Change an organization member role',
-    module: PermissionModule.ORGANIZATION_MEMBER,
-  },
-  {
-    code: 'organization_member.activate',
-    name: 'Activate Organization Member',
-    description: 'Activate an organization member',
-    module: PermissionModule.ORGANIZATION_MEMBER,
-  },
-  {
-    code: 'organization_member.deactivate',
-    name: 'Deactivate Organization Member',
-    description: 'Deactivate an organization member',
     module: PermissionModule.ORGANIZATION_MEMBER,
   },
 

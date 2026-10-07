@@ -8,9 +8,9 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'organization.transfer_ownership',
 
     'organization_member.view',
-    'organization_member.invite',
+    'organization_member.add',
+    'organization_member.update',
     'organization_member.remove',
-    'organization_member.change_role',
 
     'workspace.view',
     'workspace.create',
@@ -90,9 +90,9 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'organization.settings',
 
     'organization_member.view',
-    'organization_member.invite',
+    'organization_member.add',
+    'organization_member.update',
     'organization_member.remove',
-    'organization_member.change_role',
 
     'user.view',
     'user.create',

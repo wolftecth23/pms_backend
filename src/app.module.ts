@@ -19,6 +19,7 @@ import { TaskModule } from './task/task.module';
 import { WorkspaceMemberModule } from './workspace-member/workspace-member.module';
 import { OrgTeamModule } from './org-team/org-team.module';
 import { WorkspaceModule } from './workspace/workspace.module';
+import { OrgUserModule } from './org-user/org-user.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
     ChangeRequestModule,
     OrgTeamModule,
     WorkspaceModule,
+    OrgUserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -65,7 +65,8 @@ export class OrgUserController {
     'organization_member.add',
   )
   @ApiOperation({
-    summary: 'List all available roles that can be assigned in this organization',
+    summary:
+      'List all available roles that can be assigned in this organization',
   })
   findAvailableRoles(@Request() request: AuthRequest) {
     return this.orgUserService.findAvailableRoles(request);
@@ -92,10 +93,7 @@ export class OrgUserController {
     summary:
       'Create and add a new user to the organization with an assigned role',
   })
-  create(
-    @Body() dto: CreateOrgUserDto,
-    @Request() request: AuthRequest,
-  ) {
+  create(@Body() dto: CreateOrgUserDto, @Request() request: AuthRequest) {
     return this.orgUserService.create(dto, request);
   }
 

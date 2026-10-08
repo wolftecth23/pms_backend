@@ -13,13 +13,11 @@ import {
   ORG_PERMISSIONS_KEY,
 } from '../decorators/org-permissions.decorator';
 
-type AuthenticatedRequest = FastifyRequest & {
-  user: JwtUser;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: any;
-  headers: Record<string, any>;
-};
+interface AuthenticatedRequest extends FastifyRequest {
+  user?: JwtUser;
+  orgMember?: unknown;
+  orgPermissions?: string[];
+}
 
 @Injectable()
 export class OrgPermissionGuard implements CanActivate {
@@ -46,7 +44,7 @@ export class OrgPermissionGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const userId = request.user?.id ?? (request.user as any)?.userId;
+    const userId = request.user?.id ?? request.user?.userId;
 
     if (!userId) {
       throw new ForbiddenException({
@@ -66,14 +64,12 @@ export class OrgPermissionGuard implements CanActivate {
       });
     }
 
-    const member = await this.orgPermissionService.getOrgMember(
-      userId,
-      orgId,
-    );
+    const member = await this.orgPermissionService.getOrgMember(userId, orgId);
 
     if (!member) {
       throw new ForbiddenException({
-        message: 'You are not a member of this organization or do not have access.',
+        message:
+          'You are not a member of this organization or do not have access.',
         error: 'Forbidden',
         isAuthenticated: true,
       });
@@ -82,8 +78,8 @@ export class OrgPermissionGuard implements CanActivate {
     const memberPermissions =
       await this.orgPermissionService.getOrgMemberPermissions(userId, orgId);
 
-    (request as any).orgMember = member;
-    (request as any).orgPermissions = memberPermissions;
+    request.orgMember = member;
+    request.orgPermissions = memberPermissions;
 
     const isSuperAdmin = memberPermissions.includes('*');
 
@@ -94,7 +90,8 @@ export class OrgPermissionGuard implements CanActivate {
 
       if (!hasAll) {
         throw new ForbiddenException({
-          message: 'You do not have permission to perform this action on this organization.',
+          message:
+            'You do not have permission to perform this action on this organization.',
           error: 'Forbidden',
           isAuthenticated: true,
         });
@@ -108,7 +105,8 @@ export class OrgPermissionGuard implements CanActivate {
 
       if (!hasAny) {
         throw new ForbiddenException({
-          message: 'You do not have permission to perform this action on this organization.',
+          message:
+            'You do not have permission to perform this action on this organization.',
           error: 'Forbidden',
           isAuthenticated: true,
         });
@@ -118,33 +116,36 @@ export class OrgPermissionGuard implements CanActivate {
     return true;
   }
 
-  private resolveOrganizationId(
-    request: AuthenticatedRequest,
-  ): string | null {
-    const { params = {}, query = {}, body = {}, headers = {} } = request;
-
-    if (params.orgId) {
-      return params.orgId;
-    }
-
-    if (params.organizationId) {
-      return params.organizationId;
+  private resolveOrganizationId(request: AuthenticatedRequest): string | null {
+    const params = request.params as Record<string, unknown> | undefined;
+    if (params) {
+      if (typeof params['orgId'] === 'string') {
+        return params['orgId'];
+      }
+      if (typeof params['organizationId'] === 'string') {
+        return params['organizationId'];
+      }
     }
 
     const headerOrgId =
-      headers['x-organization-id'] || headers['X-Organization-Id'];
-    if (headerOrgId && typeof headerOrgId === 'string') {
+      request.headers['x-organization-id'] ??
+      request.headers['X-Organization-Id'];
+    if (typeof headerOrgId === 'string') {
       return headerOrgId;
     }
 
-    if (query && typeof query === 'object') {
-      if (query.orgId) return query.orgId as string;
-      if (query.organizationId) return query.organizationId as string;
+    const query = request.query as Record<string, unknown> | undefined;
+    if (query) {
+      if (typeof query['orgId'] === 'string') return query['orgId'];
+      if (typeof query['organizationId'] === 'string')
+        return query['organizationId'];
     }
 
+    const body = request.body as Record<string, unknown> | undefined;
     if (body && typeof body === 'object') {
-      if (body.orgId) return body.orgId;
-      if (body.organizationId) return body.organizationId;
+      if (typeof body['orgId'] === 'string') return body['orgId'];
+      if (typeof body['organizationId'] === 'string')
+        return body['organizationId'];
     }
 
     return null;

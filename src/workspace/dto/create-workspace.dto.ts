@@ -30,4 +30,3 @@ export class CreateWorkspaceDto {
   @IsOptional()
   memberUserIds?: string[];
 }
-

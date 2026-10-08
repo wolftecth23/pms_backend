@@ -46,10 +46,7 @@ export class OrgTeamService {
   async create(dto: CreateOrgTeamDto, request: AuthRequest) {
     const context = await this.contextService.resolveContext(request);
 
-    if (
-      !context.hasPermission('*') &&
-      !context.hasPermission('team.create')
-    ) {
+    if (!context.hasPermission('*') && !context.hasPermission('team.create')) {
       throw new ForbiddenException(
         'You do not have permission to create teams.',
       );
@@ -86,10 +83,7 @@ export class OrgTeamService {
   async update(id: string, dto: UpdateOrgTeamDto, request: AuthRequest) {
     const context = await this.contextService.resolveContext(request);
 
-    if (
-      !context.hasPermission('*') &&
-      !context.hasPermission('team.update')
-    ) {
+    if (!context.hasPermission('*') && !context.hasPermission('team.update')) {
       throw new ForbiddenException(
         'You do not have permission to update teams.',
       );
@@ -139,10 +133,7 @@ export class OrgTeamService {
   async remove(id: string, request: AuthRequest) {
     const context = await this.contextService.resolveContext(request);
 
-    if (
-      !context.hasPermission('*') &&
-      !context.hasPermission('team.delete')
-    ) {
+    if (!context.hasPermission('*') && !context.hasPermission('team.delete')) {
       throw new ForbiddenException(
         'You do not have permission to delete teams.',
       );

@@ -2,12 +2,16 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateCRDescriptionDto {
-  @ApiPropertyOptional({ description: 'What is currently included in the project?' })
+  @ApiPropertyOptional({
+    description: 'What is currently included in the project?',
+  })
   @IsOptional()
   @IsString()
   existingScope?: string;
 
-  @ApiPropertyOptional({ description: 'What does the requester want to change or add?' })
+  @ApiPropertyOptional({
+    description: 'What does the requester want to change or add?',
+  })
   @IsOptional()
   @IsString()
   requestedChange?: string;
@@ -22,7 +26,9 @@ export class UpdateCRDescriptionDto {
   @IsString()
   businessJustification?: string;
 
-  @ApiPropertyOptional({ description: 'How will existing functionality be affected?' })
+  @ApiPropertyOptional({
+    description: 'How will existing functionality be affected?',
+  })
   @IsOptional()
   @IsString()
   functionalImpact?: string;

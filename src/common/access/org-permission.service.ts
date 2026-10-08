@@ -49,7 +49,8 @@ export class OrgPermissionService {
 
     if (!member) {
       throw new ForbiddenException({
-        message: 'You are not a member of this organization or do not have access.',
+        message:
+          'You are not a member of this organization or do not have access.',
         error: 'Forbidden',
         isAuthenticated: true,
       });
@@ -73,7 +74,10 @@ export class OrgPermissionService {
     const activePermissions = permissions.filter(Boolean);
 
     // If user is organization owner or has wildcard, include '*'
-    if (member.organization?.ownerId === userId && !activePermissions.includes('*')) {
+    if (
+      member.organization?.ownerId === userId &&
+      !activePermissions.includes('*')
+    ) {
       activePermissions.push('*');
     }
 

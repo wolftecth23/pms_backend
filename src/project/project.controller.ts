@@ -24,8 +24,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ProjectPermissionGuard } from '../auth/guards/project-permission.guard';
 import { StorageService } from '../common/storage/storage.service';
-import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateProjectTaskStatusDto } from './dto/create-project-task-status.dto';
+import { CreateProjectDto } from './dto/create-project.dto';
 import { ReorderProjectTaskStatusesDto } from './dto/reorder-project-task-statuses.dto';
 import { UpdateProjectTaskStatusDto } from './dto/update-project-task-status.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -122,16 +122,12 @@ export class ProjectController {
   ) {
     const userId = req.user?.id ?? req.user?.userId ?? req.user?.sub ?? '';
     const parts = req.parts();
-    const uploadedAttachments: any[] = [];
+    const uploadedAttachments: unknown[] = [];
 
     try {
       for await (const part of parts) {
         if (part.type === 'file') {
-          const chunks: Buffer[] = [];
-          for await (const chunk of part.file) {
-            chunks.push(chunk);
-          }
-          const buffer = Buffer.concat(chunks);
+          const buffer = await part.toBuffer();
           const saved = await this.storageService.saveFile(
             buffer,
             part.filename ?? 'file',
@@ -146,8 +142,13 @@ export class ProjectController {
           uploadedAttachments.push(res.data);
         }
       }
-    } catch (err: any) {
-      if (err?.code === 'FST_FILES_LIMIT') {
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: string }).code === 'FST_FILES_LIMIT'
+      ) {
         throw new BadRequestException(
           'Too many files. You can upload a maximum of 10 files per request.',
         );

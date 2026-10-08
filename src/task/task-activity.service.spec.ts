@@ -1,15 +1,29 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProjectContext } from '../project/project.service';
 import {
   TaskActivityEntity,
   TaskActivityEvent,
 } from './constants/task-activity-event.enum';
 import { TaskActivityService } from './task-activity.service';
 
+interface MockPrisma {
+  taskActivity: {
+    create: jest.Mock;
+    createMany: jest.Mock;
+    count: jest.Mock;
+    findMany: jest.Mock;
+  };
+  task: {
+    findUnique: jest.Mock;
+  };
+}
+
 describe('TaskActivityService', () => {
   let service: TaskActivityService;
-  let prisma: Partial<Record<keyof PrismaService, any>>;
+  let prisma: MockPrisma;
 
   beforeEach(async () => {
     prisma = {
@@ -62,17 +76,18 @@ describe('TaskActivityService', () => {
             entityType: TaskActivityEntity.TASK,
             entityId: 'task_1',
             message: 'created this task',
-          }),
+          }) as unknown,
         }),
       );
     });
 
     it('should use provided transaction client when provided', async () => {
-      const mockTx: any = {
+      const txMock = {
         taskActivity: {
           create: jest.fn().mockResolvedValue({ id: 'act_tx' }),
         },
       };
+      const mockTx = txMock as unknown as Prisma.TransactionClient;
 
       const res = await service.log(
         {
@@ -84,7 +99,7 @@ describe('TaskActivityService', () => {
         mockTx,
       );
 
-      expect(mockTx.taskActivity.create).toHaveBeenCalled();
+      expect(txMock.taskActivity.create).toHaveBeenCalled();
       expect(prisma.taskActivity.create).not.toHaveBeenCalled();
       expect(res).toEqual({ id: 'act_tx' });
     });
@@ -126,7 +141,7 @@ describe('TaskActivityService', () => {
             taskId: 'task_1',
             eventType: TaskActivityEvent.TASK_TAG_ADDED,
           }),
-        ]),
+        ]) as unknown,
       });
     });
   });
@@ -164,10 +179,10 @@ describe('TaskActivityService', () => {
         },
       });
 
-      const context: any = {
+      const context = {
         organizationId: 'org_b',
         workspaceId: 'ws_b',
-      };
+      } as unknown as ProjectContext;
 
       await expect(
         service.getTaskActivities('task_1', 1, 20, context),
@@ -194,10 +209,10 @@ describe('TaskActivityService', () => {
       prisma.taskActivity.count.mockResolvedValue(2);
       prisma.taskActivity.findMany.mockResolvedValue(mockActivities);
 
-      const context: any = {
+      const context = {
         organizationId: 'org_a',
         workspaceId: 'ws_a',
-      };
+      } as unknown as ProjectContext;
 
       const result = await service.getTaskActivities('task_1', 1, 10, context);
 

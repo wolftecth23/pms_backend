@@ -156,7 +156,6 @@ nx-cache/
 .claude/
 .agents/
 .windsurf/
-.husky/
 
 # ==========================================================
 # Keep Project Files

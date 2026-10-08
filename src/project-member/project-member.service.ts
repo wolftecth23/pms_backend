@@ -24,43 +24,40 @@ export class ProjectMemberService {
 
   async findAvailableRoles(projectId?: string) {
     return this.prisma.role.findMany({
-       where: {
-         scope: StatusScope.PROJECT,
-         deletedAt: null,
-         ...(projectId
-           ? {
-               OR: [
-                 { isSystem: true, projectId: null },
-                 { projectId },
-               ],
-             }
-           : {}),
-       },
-       select: {
-         id: true,
-         name: true,
-         description: true,
-         scope: true,
-         isSystem: true,
-         projectId: true,
-         permissions: {
-           where: {
-             isActive: true,
-             deletedAt: null,
-           },
-           include: {
-             permission: {
-               select: {
-                 id: true,
-                 code: true,
-                 name: true,
-                 module: true,
-               },
-             },
-           },
-         },
-       },
-       orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
+      where: {
+        scope: StatusScope.PROJECT,
+        deletedAt: null,
+        ...(projectId
+          ? {
+              OR: [{ isSystem: true, projectId: null }, { projectId }],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        scope: true,
+        isSystem: true,
+        projectId: true,
+        permissions: {
+          where: {
+            isActive: true,
+            deletedAt: null,
+          },
+          include: {
+            permission: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                module: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
     });
   }
 
@@ -393,4 +390,3 @@ export class ProjectMemberService {
     };
   }
 }
-

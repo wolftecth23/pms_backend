@@ -12,7 +12,9 @@ export class UpdateProjectTaskStatusDto {
   @IsString()
   color?: string;
 
-  @ApiPropertyOptional({ description: 'Default status for new tasks in this project' })
+  @ApiPropertyOptional({
+    description: 'Default status for new tasks in this project',
+  })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;

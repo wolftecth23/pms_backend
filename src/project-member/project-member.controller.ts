@@ -77,10 +77,6 @@ export class ProjectMemberController {
     @Param('memberId') memberId: string,
     @Request() request: AuthRequest,
   ) {
-    return this.projectMemberService.removeMember(
-      projectId,
-      memberId,
-      request,
-    );
+    return this.projectMemberService.removeMember(projectId, memberId, request);
   }
 }

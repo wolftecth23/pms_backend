@@ -19,7 +19,10 @@ export class CreateCRDto {
   @IsNotEmpty()
   projectId!: string;
 
-  @ApiProperty({ description: 'Change request title', example: 'WhatsApp Integration' })
+  @ApiProperty({
+    description: 'Change request title',
+    example: 'WhatsApp Integration',
+  })
   @IsString()
   @IsNotEmpty()
   title!: string;
@@ -51,7 +54,10 @@ export class CreateCRDto {
   @Type(() => EffortRowDto)
   effortRows?: EffortRowDto[];
 
-  @ApiPropertyOptional({ type: [String], description: 'List of OrgMember IDs assigned as approvers' })
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'List of OrgMember IDs assigned as approvers',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

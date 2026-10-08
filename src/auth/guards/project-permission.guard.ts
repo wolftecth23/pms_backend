@@ -14,12 +14,11 @@ import {
   PROJECT_PERMISSIONS_KEY,
 } from '../decorators/project-permissions.decorator';
 
-type AuthenticatedRequest = FastifyRequest & {
-  user: JwtUser;
-  params: Record<string, string>;
-  query: Record<string, string>;
-  body: any;
-};
+interface AuthenticatedRequest extends FastifyRequest {
+  user?: JwtUser;
+  projectMember?: unknown;
+  projectPermissions?: string[];
+}
 
 @Injectable()
 export class ProjectPermissionGuard implements CanActivate {
@@ -47,7 +46,7 @@ export class ProjectPermissionGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const userId = request.user?.id ?? (request.user as any)?.userId;
+    const userId = request.user?.id ?? request.user?.userId;
 
     if (!userId) {
       throw new ForbiddenException({
@@ -77,8 +76,8 @@ export class ProjectPermissionGuard implements CanActivate {
         ?.map((rp) => rp.permission?.code)
         .filter(Boolean) ?? [];
 
-    (request as any).projectMember = member;
-    (request as any).projectPermissions = memberPermissions;
+    request.projectMember = member;
+    request.projectPermissions = memberPermissions;
 
     const isSuperAdmin = memberPermissions.includes('*');
 
@@ -89,7 +88,8 @@ export class ProjectPermissionGuard implements CanActivate {
 
       if (!hasAll) {
         throw new ForbiddenException({
-          message: 'You do not have permission to perform this action on this project.',
+          message:
+            'You do not have permission to perform this action on this project.',
           error: 'Forbidden',
           isAuthenticated: true,
         });
@@ -103,7 +103,8 @@ export class ProjectPermissionGuard implements CanActivate {
 
       if (!hasAny) {
         throw new ForbiddenException({
-          message: 'You do not have permission to perform this action on this project.',
+          message:
+            'You do not have permission to perform this action on this project.',
           error: 'Forbidden',
           isAuthenticated: true,
         });
@@ -116,21 +117,26 @@ export class ProjectPermissionGuard implements CanActivate {
   private async resolveProjectId(
     request: AuthenticatedRequest,
   ): Promise<string | null> {
-    const { params = {}, query = {}, body = {}, url = '' } = request;
+    const params = request.params as
+      Record<string, string | undefined> | undefined;
+    const query = request.query as
+      Record<string, string | undefined> | undefined;
+    const body = request.body as Record<string, unknown> | undefined;
+    const url = request.url;
 
-    if (params.projectId) {
+    if (params?.projectId) {
       return params.projectId;
     }
 
-    if (query.projectId) {
+    if (query?.projectId) {
       return query.projectId;
     }
 
-    if (body && typeof body === 'object' && body.projectId) {
-      return body.projectId;
+    if (body && typeof body['projectId'] === 'string') {
+      return body['projectId'];
     }
 
-    if (params.id) {
+    if (params?.id) {
       // Check if it's a project route
       if (url.includes('/projects') || url.includes('/project-member')) {
         return params.id;
@@ -146,7 +152,7 @@ export class ProjectPermissionGuard implements CanActivate {
       }
     }
 
-    if (params.taskId) {
+    if (params?.taskId) {
       const task = await this.prisma.task.findUnique({
         where: { id: params.taskId },
         select: { projectId: true },
@@ -154,7 +160,7 @@ export class ProjectPermissionGuard implements CanActivate {
       return task?.projectId ?? null;
     }
 
-    if (params.commentId) {
+    if (params?.commentId) {
       const comment = await this.prisma.comment.findUnique({
         where: { id: params.commentId },
         select: {
@@ -166,9 +172,9 @@ export class ProjectPermissionGuard implements CanActivate {
       return comment?.task?.projectId ?? null;
     }
 
-    if (body && typeof body === 'object' && body.taskId) {
+    if (body && typeof body['taskId'] === 'string') {
       const task = await this.prisma.task.findUnique({
-        where: { id: body.taskId },
+        where: { id: body['taskId'] },
         select: { projectId: true },
       });
       return task?.projectId ?? null;
@@ -177,4 +183,3 @@ export class ProjectPermissionGuard implements CanActivate {
     return null;
   }
 }
-

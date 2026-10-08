@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsHexColor, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsHexColor,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateOrgTeamDto {
   @ApiProperty({ example: 'Frontend' })

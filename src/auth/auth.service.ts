@@ -59,8 +59,7 @@ export class AuthService {
 
     if (!user.isActive) {
       throw new UnauthorizedException({
-        message:
-          'Your account has been deactivated. Please contact support.',
+        message: 'Your account has been deactivated. Please contact support.',
         error: 'Account Deactivated',
       });
     }

@@ -32,7 +32,9 @@ export class RoleController {
 
   @Get('project/:projectId/permissions')
   @RequireProjectPermissions('role.view')
-  @ApiOperation({ summary: 'Get available permissions that can be assigned to project roles' })
+  @ApiOperation({
+    summary: 'Get available permissions that can be assigned to project roles',
+  })
   getAvailableProjectPermissions(
     @Param('projectId') projectId: string,
     @Request() request: AuthRequest,
@@ -116,7 +118,10 @@ export class RoleController {
 
   @Get('org/:orgId/permissions')
   @RequireOrgPermissions('role.view')
-  @ApiOperation({ summary: 'Get available permissions that can be assigned to organization roles' })
+  @ApiOperation({
+    summary:
+      'Get available permissions that can be assigned to organization roles',
+  })
   getAvailableOrgPermissions(
     @Param('orgId') orgId: string,
     @Request() request: AuthRequest,
@@ -126,11 +131,10 @@ export class RoleController {
 
   @Get('org/:orgId')
   @RequireOrgPermissions('role.view')
-  @ApiOperation({ summary: 'Get all roles (system & custom) for an organization' })
-  findOrgRoles(
-    @Param('orgId') orgId: string,
-    @Request() request: AuthRequest,
-  ) {
+  @ApiOperation({
+    summary: 'Get all roles (system & custom) for an organization',
+  })
+  findOrgRoles(@Param('orgId') orgId: string, @Request() request: AuthRequest) {
     return this.roleService.findOrgRoles(orgId, request);
   }
 
@@ -158,7 +162,9 @@ export class RoleController {
 
   @Patch('org/:orgId/:roleId')
   @RequireOrgPermissions('role.update')
-  @ApiOperation({ summary: 'Update custom organization role name or description' })
+  @ApiOperation({
+    summary: 'Update custom organization role name or description',
+  })
   updateOrgRole(
     @Param('orgId') orgId: string,
     @Param('roleId') roleId: string,

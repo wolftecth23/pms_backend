@@ -48,8 +48,7 @@ export class WorkspaceController {
     'workspace_member.view',
   )
   @ApiOperation({
-    summary:
-      'List members from current organization to assign to workspace',
+    summary: 'List members from current organization to assign to workspace',
   })
   findOrganizationMembers(
     @Request() request: AuthRequest,
@@ -80,10 +79,7 @@ export class WorkspaceController {
   @Post()
   @RequirePermissions('workspace.create')
   @ApiOperation({ summary: 'Create a new workspace in the organization' })
-  create(
-    @Body() dto: CreateWorkspaceDto,
-    @Request() request: AuthRequest,
-  ) {
+  create(@Body() dto: CreateWorkspaceDto, @Request() request: AuthRequest) {
     return this.workspaceService.create(dto, request);
   }
 

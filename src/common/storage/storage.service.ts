@@ -79,7 +79,7 @@ export class StorageService {
     const uniqueName = `${randomUUID()}${ext}`;
     const filePath = path.join(this.uploadDir, uniqueName);
 
-    fs.writeFileSync(filePath, buffer);
+    await fs.promises.writeFile(filePath, buffer);
 
     this.logger.log(`Saved file: ${uniqueName} (${buffer.length} bytes)`);
 

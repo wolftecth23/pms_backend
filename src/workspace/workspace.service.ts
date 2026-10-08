@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { AuthRequest } from '../auth/auth.controller';
 import { ContextService } from '../common/context/context.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -72,10 +73,7 @@ export class WorkspaceService {
   async create(dto: CreateWorkspaceDto, request: AuthRequest) {
     const ctx = this.contextService.resolveOrganizationContext(request);
 
-    if (
-      !ctx.hasPermission('*') &&
-      !ctx.hasPermission('workspace.create')
-    ) {
+    if (!ctx.hasPermission('*') && !ctx.hasPermission('workspace.create')) {
       throw new ForbiddenException(
         'You do not have permission to create workspaces.',
       );
@@ -100,7 +98,11 @@ export class WorkspaceService {
     // Gather initial member user IDs (creator always included)
     const userIdsToAdd = new Set<string>([ctx.userId]);
 
-    if (dto.memberUserIds && Array.isArray(dto.memberUserIds) && dto.memberUserIds.length > 0) {
+    if (
+      dto.memberUserIds &&
+      Array.isArray(dto.memberUserIds) &&
+      dto.memberUserIds.length > 0
+    ) {
       const validOrgMembers = await this.prisma.organizationMember.findMany({
         where: {
           organizationId: ctx.organizationId,
@@ -186,7 +188,7 @@ export class WorkspaceService {
       );
     }
 
-    const where: any = {
+    const where: Prisma.WorkspaceMemberWhereInput = {
       workspaceId,
       removedAt: null,
     };
@@ -194,11 +196,13 @@ export class WorkspaceService {
     if (search && search.trim()) {
       const term = search.trim();
       where.user = {
-        OR: [
-          { firstName: { contains: term, mode: 'insensitive' } },
-          { lastName: { contains: term, mode: 'insensitive' } },
-          { email: { contains: term, mode: 'insensitive' } },
-        ],
+        is: {
+          OR: [
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+          ],
+        },
       };
     }
 
@@ -275,7 +279,7 @@ export class WorkspaceService {
     }
 
     // Build query conditions
-    const where: any = {
+    const where: Prisma.OrganizationMemberWhereInput = {
       organizationId: ctx.organizationId,
       removedAt: null,
       isActive: true,
@@ -284,11 +288,13 @@ export class WorkspaceService {
     if (search && search.trim()) {
       const term = search.trim();
       where.user = {
-        OR: [
-          { firstName: { contains: term, mode: 'insensitive' } },
-          { lastName: { contains: term, mode: 'insensitive' } },
-          { email: { contains: term, mode: 'insensitive' } },
-        ],
+        is: {
+          OR: [
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+          ],
+        },
       };
     }
 
@@ -398,8 +404,8 @@ export class WorkspaceService {
       dto.userIds && dto.userIds.length > 0
         ? dto.userIds
         : dto.userId
-        ? [dto.userId]
-        : [];
+          ? [dto.userId]
+          : [];
 
     if (rawUserIds.length === 0) {
       throw new BadRequestException('At least one userId must be provided.');
@@ -421,7 +427,9 @@ export class WorkspaceService {
     });
 
     const validOrgUserIds = new Set(orgMembers.map((m) => m.userId));
-    const invalidUserIds = targetUserIds.filter((id) => !validOrgUserIds.has(id));
+    const invalidUserIds = targetUserIds.filter(
+      (id) => !validOrgUserIds.has(id),
+    );
 
     if (invalidUserIds.length > 0) {
       throw new BadRequestException(
@@ -455,7 +463,9 @@ export class WorkspaceService {
       toCreate.length === 0 &&
       toRestoreIds.length === 0
     ) {
-      throw new ConflictException('User is already a member of this workspace.');
+      throw new ConflictException(
+        'User is already a member of this workspace.',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -536,7 +546,9 @@ export class WorkspaceService {
     });
 
     if (activeCount <= 1) {
-      throw new BadRequestException('Cannot remove the last member of the workspace.');
+      throw new BadRequestException(
+        'Cannot remove the last member of the workspace.',
+      );
     }
 
     await this.prisma.workspaceMember.update({

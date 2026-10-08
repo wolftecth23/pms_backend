@@ -8,23 +8,26 @@ import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../auth/auth.controller';
 import { ProjectPermissionService } from '../common/access/project-permission.service';
 import { ContextService } from '../common/context/context.service';
-import { StorageService, UploadedFileResult } from '../common/storage/storage.service';
+import {
+  StorageService,
+  UploadedFileResult,
+} from '../common/storage/storage.service';
 import { TaskAssigneeServiceValidation } from '../common/validation/task-assignee.service';
 import { TaskParentServiceValidation } from '../common/validation/task-parent.service';
 import { TaskPriorityServiceValidation } from '../common/validation/task-priority.service';
 import { TaskStatusServiceValidation } from '../common/validation/task-status.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
-import { CreateTaskDto } from './dto/create-task.dto';
-import { UpdateTaskDto } from './dto/update-task.dto';
 import {
   TaskActivityEntity,
   TaskActivityEvent,
 } from './constants/task-activity-event.enum';
+import { ChangeTaskStatusDto } from './dto/change-task-status.dto';
 import { CreateTaskActivityDto } from './dto/create-task-activity.dto';
+import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskActivityQueryDto } from './dto/task-activity-query.dto';
-import { TaskActivityService } from './task-activity.service';
+import { UpdateTaskDto } from './dto/update-task.dto';
 import { computeTaskTimeEffort } from './helpers/task-time.helper';
+import { TaskActivityService } from './task-activity.service';
 import { TaskTreeRow } from './types/task-tree.type';
 
 @Injectable()
@@ -364,9 +367,11 @@ export class TaskService {
 
     // Check the project-level role for task.view_all.
     // Use cached permissions from ProjectPermissionGuard if available to avoid redundant 4-table join.
-    const cachedPerms = (request as any)?.projectPermissions as
-      | string[]
-      | undefined;
+    const req = request as AuthRequest & {
+      projectMember?: { id: string } | null;
+      projectPermissions?: string[];
+    };
+    const cachedPerms = req.projectPermissions;
     const canViewAll = cachedPerms
       ? cachedPerms.includes('*') || cachedPerms.includes('task.view_all')
       : await this.projectPermissionService.hasProjectPermission(
@@ -400,7 +405,7 @@ export class TaskService {
     if (assigneeIds.length > 0) {
       if (!canViewAll) {
         // Intersect: must be assigned to current user AND in selected filter
-        const cachedMember = (request as any)?.projectMember;
+        const cachedMember = req.projectMember;
         const currentMember =
           cachedMember ??
           (await this.prisma.projectMember.findFirst({
@@ -445,7 +450,7 @@ export class TaskService {
       }
     } else {
       if (!canViewAll) {
-        const cachedMemberId = (request as any)?.projectMember?.id;
+        const cachedMemberId = req.projectMember?.id;
         if (cachedMemberId) {
           where.assignees = {
             some: {
@@ -560,7 +565,7 @@ export class TaskService {
     const mappedTasks = tasks.map((task) => ({
       ...task,
       ...computeTaskTimeEffort(task),
-      tags: task.tags?.map((tt: any) => tt.tag) || [],
+      tags: task.tags?.map((tt) => tt.tag) ?? [],
     }));
 
     return {

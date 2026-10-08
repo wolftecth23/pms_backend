@@ -283,7 +283,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'comment.create',
   ],
 
-  'BDE': [
+  BDE: [
     'project.view',
 
     'task.view',

@@ -18,8 +18,8 @@ import {
 import { ProjectStatusServiceValidation } from '../common/validation/project-status.service';
 import { TaskStatusServiceValidation } from '../common/validation/task-status.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateProjectTaskStatusDto } from './dto/create-project-task-status.dto';
+import { CreateProjectDto } from './dto/create-project.dto';
 import { ReorderProjectTaskStatusesDto } from './dto/reorder-project-task-statuses.dto';
 import { UpdateProjectTaskStatusDto } from './dto/update-project-task-status.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -1278,7 +1278,10 @@ export class ProjectService {
     };
   }
 
-  async syncProjectSpentHours(projectId: string, tx?: any): Promise<void> {
+  async syncProjectSpentHours(
+    projectId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
     const client = tx ?? this.prisma;
     const agg = await client.task.aggregate({
       where: { projectId, deletedAt: null },

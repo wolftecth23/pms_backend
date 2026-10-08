@@ -20,11 +20,12 @@ interface OrganizationParams {
   organizationId: string;
 }
 
-type PermissionRequest = FastifyRequest<{
+interface PermissionRequest extends FastifyRequest<{
   Params: OrganizationParams;
-}> & {
-  user: JwtUser;
-};
+}> {
+  user?: JwtUser;
+  orgPermissionFailed?: boolean;
+}
 
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -103,7 +104,7 @@ export class PermissionGuard implements CanActivate {
         // If the route also enforces project permissions, let
         // ProjectPermissionGuard handle the final decision.
         if (hasProjectPermissionRequirements) {
-          (request as any).orgPermissionFailed = true;
+          request.orgPermissionFailed = true;
           return true;
         }
 
@@ -124,7 +125,7 @@ export class PermissionGuard implements CanActivate {
         // If the route also enforces project permissions, let
         // ProjectPermissionGuard handle the final decision.
         if (hasProjectPermissionRequirements) {
-          (request as any).orgPermissionFailed = true;
+          request.orgPermissionFailed = true;
           return true;
         }
 

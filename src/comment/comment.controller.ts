@@ -90,7 +90,9 @@ export class CommentController {
 
   @Get('tasks/:taskId/comments/:commentId')
   @RequireProjectPermissions('comment.view')
-  @ApiOperation({ summary: 'Get comment and pagination context for deep-linking' })
+  @ApiOperation({
+    summary: 'Get comment and pagination context for deep-linking',
+  })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getCommentContext(
     @Param('taskId') taskId: string,
@@ -171,12 +173,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
           if (part.type === 'field' && part.fieldname === 'data') {
             rawData = part.value as string;
           } else if (part.type === 'file') {
-            // Collect file buffer
-            const chunks: Buffer[] = [];
-            for await (const chunk of part.file) {
-              chunks.push(chunk);
-            }
-            const buffer = Buffer.concat(chunks);
+            const buffer = await part.toBuffer();
             const originalName = part.filename ?? 'file';
             const mimeType = part.mimetype ?? 'application/octet-stream';
 
@@ -189,8 +186,13 @@ All uploaded files are saved and their metadata is stored as comment attachments
             uploadedFiles.push(saved);
           }
         }
-      } catch (err: any) {
-        if (err?.code === 'FST_FILES_LIMIT') {
+      } catch (err: unknown) {
+        if (
+          typeof err === 'object' &&
+          err !== null &&
+          'code' in err &&
+          (err as { code: string }).code === 'FST_FILES_LIMIT'
+        ) {
           throw new BadRequestException(
             'Too many files. You can upload a maximum of 10 files per request.',
           );
@@ -207,7 +209,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
       dto = JSON.parse(rawData) as CreateCommentDto;
     } else {
       // ── JSON path ──
-      dto = (req as any).body as CreateCommentDto;
+      dto = req.body as CreateCommentDto;
     }
 
     return this.commentService.createComment(
@@ -316,11 +318,7 @@ All uploaded files are saved and their metadata is stored as comment attachments
     try {
       for await (const part of parts) {
         if (part.type === 'file') {
-          const chunks: Buffer[] = [];
-          for await (const chunk of part.file) {
-            chunks.push(chunk);
-          }
-          const buffer = Buffer.concat(chunks);
+          const buffer = await part.toBuffer();
           const saved = await this.storage.saveFile(
             buffer,
             part.filename ?? 'file',
@@ -329,8 +327,13 @@ All uploaded files are saved and their metadata is stored as comment attachments
           return this.commentService.addAttachment(commentId, userId, saved);
         }
       }
-    } catch (err: any) {
-      if (err?.code === 'FST_FILES_LIMIT') {
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: string }).code === 'FST_FILES_LIMIT'
+      ) {
         throw new BadRequestException(
           'Too many files. You can upload a maximum of 10 files per request.',
         );
@@ -351,4 +354,3 @@ All uploaded files are saved and their metadata is stored as comment attachments
     return this.commentService.deleteAttachment(attachmentId);
   }
 }
-

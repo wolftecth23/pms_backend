@@ -8,6 +8,8 @@ import { ChangeRequestModule } from './change-request/change-request.module';
 import { CommentModule } from './comment/comment.module';
 import { CommonModule } from './common/common.module';
 import { EmailModule } from './email/email.module';
+import { OrgTeamModule } from './org-team/org-team.module';
+import { OrgUserModule } from './org-user/org-user.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectMemberModule } from './project-member/project-member.module';
 import { ProjectStatusModule } from './project-status/project-status.module';
@@ -17,9 +19,7 @@ import { SyncModule } from './sync/sync.module';
 import { TagModule } from './tag/tag.module';
 import { TaskModule } from './task/task.module';
 import { WorkspaceMemberModule } from './workspace-member/workspace-member.module';
-import { OrgTeamModule } from './org-team/org-team.module';
 import { WorkspaceModule } from './workspace/workspace.module';
-import { OrgUserModule } from './org-user/org-user.module';
 
 @Module({
   imports: [

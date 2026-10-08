@@ -17,7 +17,9 @@ export class UpdateOrgUserDto {
   @IsOptional()
   designation?: string;
 
-  @ApiPropertyOptional({ description: 'Role ID to reassign within this organization' })
+  @ApiPropertyOptional({
+    description: 'Role ID to reassign within this organization',
+  })
   @IsString()
   @IsOptional()
   roleId?: string;

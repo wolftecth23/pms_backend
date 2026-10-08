@@ -103,8 +103,12 @@ export class TaskStatusServiceValidation {
         taskStatusOrder.forEach((id, idx) => orderMap.set(id, idx));
 
         statuses.sort((a, b) => {
-          const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999 + a.order;
-          const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999 + b.order;
+          const idxA = orderMap.has(a.id)
+            ? orderMap.get(a.id)!
+            : 9999 + a.order;
+          const idxB = orderMap.has(b.id)
+            ? orderMap.get(b.id)!
+            : 9999 + b.order;
           if (idxA !== idxB) {
             return idxA - idxB;
           }

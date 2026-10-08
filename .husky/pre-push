@@ -1,0 +1,19 @@
+#!/bin/sh
+# Husky pre-push hook — Backend (be_leaveportal_new)
+# Runs: auto-fix → lint → format check → typecheck → tests
+
+set -e
+
+echo "🔍 [pre-push] Running auto-fix..."
+pnpm run format || true
+pnpm run lint:fix || true
+
+echo "✅ [pre-push] Running validation..."
+pnpm run lint
+pnpm run format:check
+pnpm run typecheck
+
+# echo "🧪 [pre-push] Running tests..."
+# pnpm run test
+
+echo "🚀 All checks passed. Pushing to Bitbucket..."

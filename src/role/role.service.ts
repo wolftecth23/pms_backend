@@ -94,10 +94,7 @@ export class RoleService {
       where: {
         scope: StatusScope.PROJECT,
         deletedAt: null,
-        OR: [
-          { isSystem: true, projectId: null },
-          { projectId },
-        ],
+        OR: [{ isSystem: true, projectId: null }, { projectId }],
       },
       select: {
         id: true,
@@ -161,10 +158,7 @@ export class RoleService {
         id: roleId,
         scope: StatusScope.PROJECT,
         deletedAt: null,
-        OR: [
-          { isSystem: true, projectId: null },
-          { projectId },
-        ],
+        OR: [{ isSystem: true, projectId: null }, { projectId }],
       },
       select: {
         id: true,
@@ -241,10 +235,7 @@ export class RoleService {
           mode: 'insensitive',
         },
         deletedAt: null,
-        OR: [
-          { isSystem: true, projectId: null },
-          { projectId },
-        ],
+        OR: [{ isSystem: true, projectId: null }, { projectId }],
       },
     });
 
@@ -267,12 +258,15 @@ export class RoleService {
       });
 
       if (foundPermissions.length !== uniqueRequestedIds.length) {
-        throw new BadRequestException('One or more selected permissions were not found.');
+        throw new BadRequestException(
+          'One or more selected permissions were not found.',
+        );
       }
 
       // Ensure all permissions belong to allowed project modules
       const disallowed = foundPermissions.filter(
-        (p) => !PROJECT_ALLOWED_MODULES.includes(p.module as any),
+        (p) =>
+          !(PROJECT_ALLOWED_MODULES as readonly string[]).includes(p.module),
       );
       if (disallowed.length > 0) {
         throw new BadRequestException(
@@ -397,10 +391,7 @@ export class RoleService {
             mode: 'insensitive',
           },
           deletedAt: null,
-          OR: [
-            { isSystem: true, projectId: null },
-            { projectId },
-          ],
+          OR: [{ isSystem: true, projectId: null }, { projectId }],
         },
       });
 
@@ -504,12 +495,14 @@ export class RoleService {
     });
 
     if (foundPermissions.length !== uniqueRequestedIds.length) {
-      throw new BadRequestException('One or more selected permissions were not found.');
+      throw new BadRequestException(
+        'One or more selected permissions were not found.',
+      );
     }
 
     // Ensure all permissions belong to allowed project modules
     const disallowed = foundPermissions.filter(
-      (p) => !PROJECT_ALLOWED_MODULES.includes(p.module as any),
+      (p) => !(PROJECT_ALLOWED_MODULES as readonly string[]).includes(p.module),
     );
     if (disallowed.length > 0) {
       throw new BadRequestException(
@@ -696,10 +689,7 @@ export class RoleService {
    * Get all assignable permissions for organization roles.
    * Excludes project-scoped permissions (task, task_status, comment, project_member).
    */
-  async getAvailableOrgPermissions(
-    orgId: string,
-    request: AuthRequest,
-  ) {
+  async getAvailableOrgPermissions(orgId: string, _request: AuthRequest) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
     const permissions = await this.prisma.permission.findMany({
@@ -726,7 +716,7 @@ export class RoleService {
    * List all roles applicable to a specific organization.
    * Includes both system default roles and custom organization-created roles.
    */
-  async findOrgRoles(orgId: string, request: AuthRequest) {
+  async findOrgRoles(orgId: string, _request: AuthRequest) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
     const roles = await this.prisma.role.findMany({
@@ -796,11 +786,7 @@ export class RoleService {
   /**
    * Get single organization role details with permissions and assigned member count.
    */
-  async findOrgRoleById(
-    orgId: string,
-    roleId: string,
-    request: AuthRequest,
-  ) {
+  async findOrgRoleById(orgId: string, roleId: string, _request: AuthRequest) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
     const role = await this.prisma.role.findFirst({
@@ -881,7 +867,7 @@ export class RoleService {
   ) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
-    const userId = request.user?.id ?? (request.user as any)?.userId;
+    const userId = request.user?.id ?? request.user?.userId ?? '';
     const normalizedName = dto.name.trim();
 
     // Check if role name already exists in this organization (system or custom)
@@ -927,12 +913,14 @@ export class RoleService {
       });
 
       if (foundPermissions.length !== uniqueRequestedIds.length) {
-        throw new BadRequestException('One or more selected permissions were not found.');
+        throw new BadRequestException(
+          'One or more selected permissions were not found.',
+        );
       }
 
       // Ensure all permissions belong to allowed org modules
       const disallowed = foundPermissions.filter(
-        (p) => !ORG_ALLOWED_MODULES.includes(p.module as any),
+        (p) => !(ORG_ALLOWED_MODULES as readonly string[]).includes(p.module),
       );
       if (disallowed.length > 0) {
         throw new BadRequestException(
@@ -1014,7 +1002,7 @@ export class RoleService {
     orgId: string,
     roleId: string,
     dto: UpdateOrgRoleDto,
-    request: AuthRequest,
+    _request: AuthRequest,
   ) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
@@ -1034,7 +1022,10 @@ export class RoleService {
     }
 
     // Organization isolation check
-    if (role.organizationId !== orgId || role.scope !== StatusScope.ORGANIZATION) {
+    if (
+      role.organizationId !== orgId ||
+      role.scope !== StatusScope.ORGANIZATION
+    ) {
       throw new ForbiddenException(
         'You can only modify custom roles that belong to this organization.',
       );
@@ -1135,7 +1126,7 @@ export class RoleService {
   ) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
-    const userId = request.user?.id ?? (request.user as any)?.userId;
+    const userId = request.user?.id ?? request.user?.userId ?? '';
 
     const role = await this.prisma.role.findUnique({
       where: { id: roleId },
@@ -1153,7 +1144,10 @@ export class RoleService {
     }
 
     // Organization isolation check
-    if (role.organizationId !== orgId || role.scope !== StatusScope.ORGANIZATION) {
+    if (
+      role.organizationId !== orgId ||
+      role.scope !== StatusScope.ORGANIZATION
+    ) {
       throw new ForbiddenException(
         'You can only manage permissions for custom roles belonging to this organization.',
       );
@@ -1169,12 +1163,14 @@ export class RoleService {
     });
 
     if (foundPermissions.length !== uniqueRequestedIds.length) {
-      throw new BadRequestException('One or more selected permissions were not found.');
+      throw new BadRequestException(
+        'One or more selected permissions were not found.',
+      );
     }
 
     // Ensure all permissions belong to allowed org modules
     const disallowed = foundPermissions.filter(
-      (p) => !ORG_ALLOWED_MODULES.includes(p.module as any),
+      (p) => !(ORG_ALLOWED_MODULES as readonly string[]).includes(p.module),
     );
     if (disallowed.length > 0) {
       throw new BadRequestException(
@@ -1257,11 +1253,7 @@ export class RoleService {
    * System roles cannot be deleted.
    * If any organization members are assigned to this role, they are automatically reassigned to default "Team Member" role.
    */
-  async deleteOrgRole(
-    orgId: string,
-    roleId: string,
-    request: AuthRequest,
-  ) {
+  async deleteOrgRole(orgId: string, roleId: string, _request: AuthRequest) {
     await this.organizationAccessService.findOrganizationOrThrow(orgId);
 
     const role = await this.prisma.role.findUnique({
@@ -1278,7 +1270,10 @@ export class RoleService {
     }
 
     // Organization isolation check
-    if (role.organizationId !== orgId || role.scope !== StatusScope.ORGANIZATION) {
+    if (
+      role.organizationId !== orgId ||
+      role.scope !== StatusScope.ORGANIZATION
+    ) {
       throw new ForbiddenException(
         'You can only delete custom roles that belong to this organization.',
       );

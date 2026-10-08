@@ -73,4 +73,3 @@ export async function seedRoles(prisma: PrismaClient) {
   console.log(`Roles in DB: ${count}`);
   console.log('✅ Roles seeded');
 }
-

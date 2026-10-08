@@ -152,16 +152,12 @@ export class TaskController {
   ) {
     const userId = req.user?.id ?? req.user?.userId ?? req.user?.sub ?? '';
     const parts = req.parts();
-    const uploadedAttachments: any[] = [];
+    const uploadedAttachments: unknown[] = [];
 
     try {
       for await (const part of parts) {
         if (part.type === 'file') {
-          const chunks: Buffer[] = [];
-          for await (const chunk of part.file) {
-            chunks.push(chunk);
-          }
-          const buffer = Buffer.concat(chunks);
+          const buffer = await part.toBuffer();
           const saved = await this.storageService.saveFile(
             buffer,
             part.filename ?? 'file',
@@ -176,8 +172,13 @@ export class TaskController {
           uploadedAttachments.push(res.data);
         }
       }
-    } catch (err: any) {
-      if (err?.code === 'FST_FILES_LIMIT') {
+    } catch (err: unknown) {
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: string }).code === 'FST_FILES_LIMIT'
+      ) {
         throw new BadRequestException(
           'Too many files. You can upload a maximum of 10 files per request.',
         );

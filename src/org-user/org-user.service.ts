@@ -1,17 +1,16 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, StatusScope } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { AuthRequest } from '../auth/auth.controller';
 import { ContextService } from '../common/context/context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgUserDto } from './dto/create-org-user.dto';
 import { UpdateOrgUserDto } from './dto/update-org-user.dto';
-import { StatusScope } from '@prisma/client';
 
 @Injectable()
 export class OrgUserService {
@@ -34,7 +33,7 @@ export class OrgUserService {
   ) {
     const ctx = this.contextService.resolveOrganizationContext(request);
 
-    const where: any = {
+    const where: Prisma.OrganizationMemberWhereInput = {
       organizationId: ctx.organizationId,
       removedAt: null,
     };
@@ -50,13 +49,14 @@ export class OrgUserService {
     if (search && search.trim()) {
       const term = search.trim();
       where.user = {
-        ...where.user,
-        OR: [
-          { firstName: { contains: term, mode: 'insensitive' } },
-          { lastName: { contains: term, mode: 'insensitive' } },
-          { email: { contains: term, mode: 'insensitive' } },
-          { designation: { contains: term, mode: 'insensitive' } },
-        ],
+        is: {
+          OR: [
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+            { designation: { contains: term, mode: 'insensitive' } },
+          ],
+        },
       };
     }
 
@@ -500,11 +500,9 @@ export class OrgUserService {
       }
     }
 
-    const currentUserId = request.user?.id ?? (request.user as any)?.userId;
+    const currentUserId = request.user?.id ?? request.user?.userId;
     if (currentUserId === member.userId && dto.isActive === false) {
-      throw new BadRequestException(
-        'You cannot deactivate your own account.',
-      );
+      throw new BadRequestException('You cannot deactivate your own account.');
     }
 
     // Validate new role if specified (System or Organization role only)
@@ -536,7 +534,7 @@ export class OrgUserService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // Update user attributes
-      const userUpdateData: any = {};
+      const userUpdateData: Prisma.UserUpdateInput = {};
       if (dto.firstName !== undefined)
         userUpdateData.firstName = dto.firstName.trim();
       if (dto.lastName !== undefined)
@@ -551,7 +549,7 @@ export class OrgUserService {
       }
 
       // Update organization membership role and active status
-      const memberUpdateData: any = {
+      const memberUpdateData: Prisma.OrganizationMemberUncheckedUpdateInput = {
         roleId: dto.roleId || member.roleId,
       };
       if (dto.isActive !== undefined) {

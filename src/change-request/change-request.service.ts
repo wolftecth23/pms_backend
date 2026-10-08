@@ -460,7 +460,10 @@ export class ChangeRequestService {
       where.createdAt = {};
       if (query.dateFrom) {
         const fromDate = new Date(query.dateFrom);
-        if (typeof query.dateFrom === 'string' && !query.dateFrom.includes('T')) {
+        if (
+          typeof query.dateFrom === 'string' &&
+          !query.dateFrom.includes('T')
+        ) {
           fromDate.setUTCHours(0, 0, 0, 0);
         }
         where.createdAt.gte = fromDate;
@@ -788,15 +791,15 @@ export class ChangeRequestService {
                   deletedAt: null,
                   permission: {
                     code: {
-                  in: ['cr.approve_reject', '*'],
+                      in: ['cr.approve_reject', '*'],
+                    },
+                    deletedAt: null,
+                  },
                 },
-                deletedAt: null,
               },
             },
           },
-        },
-      },
-    });
+        });
 
         if (eligibleCount !== dto.approverMemberIds.length) {
           throw new BadRequestException(
@@ -1145,7 +1148,8 @@ export class ChangeRequestService {
               where: { id: cr.projectId },
               data: {
                 purchaseHours: currentPurchase + (cr.totalPurchaseHours || 0),
-                estimatedHours: currentEstimated + (cr.totalEstimatedHours || 0),
+                estimatedHours:
+                  currentEstimated + (cr.totalEstimatedHours || 0),
               },
             });
           }

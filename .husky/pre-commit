@@ -1,0 +1,4 @@
+#!/bin/sh
+# Husky pre-commit hook — Backend
+# Runs lint-staged on staged files only
+pnpm exec lint-staged

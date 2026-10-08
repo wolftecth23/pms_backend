@@ -1,9 +1,4 @@
-import {
-  ApprovalStatus,
-  CRPriority,
-  CRStatus,
-  CRType,
-} from '@prisma/client';
+import { ApprovalStatus, CRPriority, CRStatus, CRType } from '@prisma/client';
 
 export { ApprovalStatus, CRPriority, CRStatus, CRType };
 

@@ -44,10 +44,7 @@ export class OrgUserService {
     }
 
     if (isActive !== undefined && isActive !== '') {
-      where.user = {
-        ...where.user,
-        isActive: isActive === 'true',
-      };
+      where.isActive = isActive === 'true';
     }
 
     if (search && search.trim()) {
@@ -107,14 +104,14 @@ export class OrgUserService {
           where: {
             organizationId: ctx.organizationId,
             removedAt: null,
-            user: { isActive: true },
+            isActive: true,
           },
         }),
         this.prisma.organizationMember.count({
           where: {
             organizationId: ctx.organizationId,
             removedAt: null,
-            user: { isActive: false },
+            isActive: false,
           },
         }),
       ]);
@@ -327,7 +324,6 @@ export class OrgUserService {
               firstName: dto.firstName.trim(),
               lastName: dto.lastName?.trim() || existingUser.lastName,
               designation: dto.designation.trim() || existingUser.designation,
-              isActive: true,
             },
           });
 
@@ -335,6 +331,7 @@ export class OrgUserService {
             where: { id: existingMembership.id },
             data: {
               roleId: dto.roleId,
+              isActive: true,
               removedAt: null,
               removedById: null,
               joinedAt: new Date(),
@@ -503,6 +500,13 @@ export class OrgUserService {
       }
     }
 
+    const currentUserId = request.user?.id ?? (request.user as any)?.userId;
+    if (currentUserId === member.userId && dto.isActive === false) {
+      throw new BadRequestException(
+        'You cannot deactivate your own account.',
+      );
+    }
+
     // Validate new role if specified (System or Organization role only)
     if (dto.roleId && dto.roleId !== member.roleId) {
       const role = await this.prisma.role.findFirst({
@@ -539,8 +543,6 @@ export class OrgUserService {
         userUpdateData.lastName = dto.lastName?.trim() || null;
       if (dto.designation !== undefined)
         userUpdateData.designation = dto.designation.trim();
-      if (dto.isActive !== undefined) userUpdateData.isActive = dto.isActive;
-
       if (Object.keys(userUpdateData).length > 0) {
         await tx.user.update({
           where: { id: member.userId },
@@ -548,12 +550,17 @@ export class OrgUserService {
         });
       }
 
-      // Update organization membership role
+      // Update organization membership role and active status
+      const memberUpdateData: any = {
+        roleId: dto.roleId || member.roleId,
+      };
+      if (dto.isActive !== undefined) {
+        memberUpdateData.isActive = dto.isActive;
+      }
+
       return tx.organizationMember.update({
         where: { id: memberId },
-        data: {
-          roleId: dto.roleId || member.roleId,
-        },
+        data: memberUpdateData,
         include: {
           user: {
             select: {
@@ -625,6 +632,7 @@ export class OrgUserService {
       await tx.organizationMember.update({
         where: { id: memberId },
         data: {
+          isActive: false,
           removedAt: new Date(),
           removedById: ctx.userId,
         },

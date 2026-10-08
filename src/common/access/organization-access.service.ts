@@ -25,6 +25,7 @@ export class OrganizationAccessService {
         userId,
         organizationId,
         removedAt: null,
+        isActive: true,
       },
       include: {
         role: true,

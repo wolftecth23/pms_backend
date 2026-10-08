@@ -30,8 +30,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user) {
       throw new UnauthorizedException({
-        message: 'Your account could not be found.',
+        message: 'Your account could not be found or has been deactivated.',
         error: 'User Not Found',
+        isAuthenticated: false,
+      });
+    }
+
+    if (!user.organizations || user.organizations.length === 0) {
+      throw new UnauthorizedException({
+        message:
+          'Your account has been deactivated in your organization. Please contact your organization administrator.',
+        error: 'Organization Access Denied',
         isAuthenticated: false,
       });
     }

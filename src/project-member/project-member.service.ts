@@ -143,12 +143,13 @@ export class ProjectMemberService {
         organizationId: project.organizationId,
         userId: dto.userId,
         removedAt: null,
+        isActive: true,
       },
     });
 
     if (!organizationMember) {
       throw new BadRequestException(
-        'User is not a member of this organization.',
+        'User is not an active member of this organization.',
       );
     }
 

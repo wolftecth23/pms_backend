@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,6 +55,34 @@ export class AuthService {
 
     if (!isPasswordValid) {
       return null;
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException({
+        message:
+          'Your account has been deactivated. Please contact support.',
+        error: 'Account Deactivated',
+      });
+    }
+
+    const hasActiveMembership = await this.prisma.organizationMember.findFirst({
+      where: {
+        userId: user.id,
+        isActive: true,
+        removedAt: null,
+        organization: {
+          isActive: true,
+          deletedAt: null,
+        },
+      },
+    });
+
+    if (!hasActiveMembership) {
+      throw new UnauthorizedException({
+        message:
+          'Your account has been deactivated in your organization. Please contact your organization administrator.',
+        error: 'Organization Access Denied',
+      });
     }
 
     const { password: _password, ...result } = user;
@@ -129,12 +157,23 @@ export class AuthService {
       },
       include: {
         organizationMember: {
+          where: {
+            removedAt: null,
+            isActive: true,
+            organization: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
           include: {
             organization: {
               select: {
                 id: true,
                 name: true,
                 workspace: {
+                  where: {
+                    deletedAt: null,
+                  },
                   select: {
                     id: true,
                     name: true,
@@ -161,9 +200,13 @@ export class AuthService {
       },
     });
 
-    if (!user) {
+    if (!user || !user.isActive) {
       return null;
     }
+
+    const validMemberships = user.organizationMember.filter(
+      (member) => member.organization != null,
+    );
 
     return {
       id: user.id,
@@ -171,7 +214,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
 
-      organizations: user.organizationMember.map((member) => ({
+      organizations: validMemberships.map((member) => ({
         organizationId: member.organization.id,
         organizationName: member.organization.name,
 
@@ -189,13 +232,6 @@ export class AuthService {
         permissions: member?.role?.permissions?.map(
           (rp) => rp?.permission?.code,
         ),
-
-        // permissions: member.role.permissions.map((rp) => ({
-        //   id: rp.permission.id,
-        //   code: rp.permission.code,
-        //   name: rp.permission.name,
-        //   module: rp.permission.module,
-        // })),
       })),
     };
   }

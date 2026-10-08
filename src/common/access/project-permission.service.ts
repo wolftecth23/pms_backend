@@ -16,6 +16,9 @@ export class ProjectPermissionService {
         projectId,
         userId,
         removedAt: null,
+        user: {
+          isActive: true,
+        },
       },
       include: {
         projectRole: {

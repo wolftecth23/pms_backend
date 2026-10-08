@@ -45,6 +45,8 @@ model OrganizationMember {
 
   roleId String
 
+  isActive Boolean @default(true)
+
   joinedAt    DateTime  @default(now())
   removedAt   DateTime?
   removedById String?

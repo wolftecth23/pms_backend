@@ -15,6 +15,10 @@ export class OrgPermissionService {
         organizationId,
         userId,
         removedAt: null,
+        isActive: true,
+        user: {
+          isActive: true,
+        },
       },
       include: {
         organization: {

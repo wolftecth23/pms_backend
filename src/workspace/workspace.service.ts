@@ -106,6 +106,7 @@ export class WorkspaceService {
           organizationId: ctx.organizationId,
           userId: { in: dto.memberUserIds },
           removedAt: null,
+          isActive: true,
         },
         select: { userId: true },
       });
@@ -277,6 +278,7 @@ export class WorkspaceService {
     const where: any = {
       organizationId: ctx.organizationId,
       removedAt: null,
+      isActive: true,
     };
 
     if (search && search.trim()) {
@@ -411,6 +413,7 @@ export class WorkspaceService {
         organizationId: ctx.organizationId,
         userId: { in: targetUserIds },
         removedAt: null,
+        isActive: true,
       },
       select: {
         userId: true,

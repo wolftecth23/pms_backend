@@ -30,6 +30,11 @@ export const DEFAULT_ROLES = [
     isSystem: true,
   },
   {
+    name: 'BDE',
+    description: 'Business Development Executive.',
+    isSystem: true,
+  },
+  {
     name: 'Guest',
     description: 'External collaborator with limited access.',
     isSystem: true,
@@ -43,6 +48,7 @@ export enum DefaultRole {
   PROJECT_MANAGER = 'Project Manager',
   TEAM_LEAD = 'Team Lead',
   TEAM_MEMBER = 'Team Member',
+  BDE = 'BDE',
   GUEST = 'Guest',
 }
 

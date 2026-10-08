@@ -204,30 +204,71 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'cr.update',
     'cr.submit',
     'cr.cancel',
-    'cr.manage_approvers',
-    'cr.approve_reject',
+    // 'cr.manage_approvers',
+    // 'cr.approve_reject',
   ],
+
+  // 'Team Lead': [
+  //   'project.view',
+
+  //   'project_member.view',
+
+  //   'task.view',
+  //   'task.view_all',
+  //   'task.create',
+  //   'task.update',
+  //   'task.assign',
+  //   'task.unassign',
+  //   'task.change_status',
+  //   'task.log_time',
+
+  //   'task_status.view',
+
+  //   'comment.view',
+  //   'comment.create',
+  //   'comment.update',
+  //   'comment.delete',
+  // ],
 
   'Team Lead': [
     'project.view',
+    'project.create',
+    'project.update',
+    'project.change_status',
+    'project.manage_workflow',
+    'project.view_workspace',
+    'project.view_organization',
 
     'project_member.view',
+    'project_member.add',
+    'project_member.remove',
 
     'task.view',
     'task.view_all',
     'task.create',
     'task.update',
+    'task.delete',
     'task.assign',
     'task.unassign',
     'task.change_status',
     'task.log_time',
 
     'task_status.view',
+    'task_status.create',
+    'task_status.update',
 
     'comment.view',
     'comment.create',
     'comment.update',
     'comment.delete',
+
+    'cr.create',
+    'cr.view',
+    'cr.update',
+    'cr.submit',
+    'cr.cancel',
+    // 'cr.manage_approvers',
+    // 'cr.approve_reject',
   ],
 
   'Team Member': [
@@ -240,6 +281,24 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 
     'comment.view',
     'comment.create',
+  ],
+
+  'BDE': [
+    'project.view',
+
+    'task.view',
+    'task.update',
+    'task.change_status',
+    'task.log_time',
+
+    'comment.view',
+    'comment.create',
+
+    'cr.create',
+    'cr.view',
+    'cr.update',
+    'cr.submit',
+    'cr.cancel',
   ],
 
   Guest: ['project.view', 'task.view', 'comment.view', 'comment.create'],

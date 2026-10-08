@@ -383,6 +383,7 @@ export class ChangeRequestService {
           userId,
           organizationId,
           removedAt: null,
+          isActive: true,
         },
         include: {
           role: { select: { name: true } },
@@ -1317,6 +1318,7 @@ export class ChangeRequestService {
         id: dto.orgMemberId,
         organizationId,
         removedAt: null,
+        isActive: true,
         role: {
           deletedAt: null,
           permissions: {

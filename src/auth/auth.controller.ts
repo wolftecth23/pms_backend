@@ -70,7 +70,7 @@ export class AuthController {
 
     if (!userDetails) {
       throw new UnauthorizedException({
-        message: 'Your account could not be found.',
+        message: 'Your account could not be found or has been deactivated.',
         error: 'User Not Found',
         isAuthenticated: false,
       });

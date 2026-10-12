@@ -5,6 +5,10 @@ import {
   CommentMentionEmailData,
   renderCommentMentionTemplate,
 } from './templates/comment-mention.template';
+import {
+  OtpEmailData,
+  renderOtpEmailTemplate,
+} from './templates/otp-verification.template';
 
 @Injectable()
 export class EmailService {
@@ -69,6 +73,43 @@ export class EmailService {
       const err = error as Error;
       this.logger.error(
         `Failed to send mention email to user: ${data.recipientEmail} (ID: ${data.recipientName}), comment ID: ${data.commentId}, task ID: ${data.taskId}. Error: ${err?.message || String(error)}`,
+        err?.stack,
+      );
+      return false;
+    }
+  }
+
+  async sendOtpEmail(data: OtpEmailData): Promise<boolean> {
+    try {
+      const from =
+        this.configService.get<string>('MAIL_FROM') ||
+        '"STL-PMS Security" <noreply@stl-pms.com>';
+
+      const { subject, html, text } = renderOtpEmailTemplate(data);
+
+      if (!this.transporter) {
+        this.logger.log(
+          `[MOCK OTP EMAIL SENT] To: ${data.recipientEmail} (${data.recipientName}) | Subject: "${subject}" | OTP: ${data.otp}`,
+        );
+        return true;
+      }
+
+      await this.transporter.sendMail({
+        from,
+        to: data.recipientEmail,
+        subject,
+        text,
+        html,
+      });
+
+      this.logger.log(
+        `OTP email sent successfully to ${data.recipientEmail} for purpose "${data.purpose}"`,
+      );
+      return true;
+    } catch (error: unknown) {
+      const err = error as Error;
+      this.logger.error(
+        `Failed to send OTP email to ${data.recipientEmail}: ${err?.message || String(error)}`,
         err?.stack,
       );
       return false;

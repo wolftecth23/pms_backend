@@ -25,8 +25,12 @@ import { WorkspaceModule } from './workspace/workspace.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
-      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
+      envFilePath: [
+        process.env.NODE_ENV
+          ? `.env.${process.env.NODE_ENV}`
+          : '.env.development',
+        '.env',
+      ],
     }),
 
     ScheduleModule.forRoot(),

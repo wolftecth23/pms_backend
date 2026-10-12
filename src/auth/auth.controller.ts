@@ -12,6 +12,13 @@ import {
 import { FastifyRequest } from 'fastify';
 import { AuthService, JwtOrganization } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import {
+  ChangePasswordDto,
+  ForgotPasswordRequestDto,
+  RequestChangePasswordOtpDto,
+  ResetPasswordDto,
+  VerifyOtpDto,
+} from './dto/otp-auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 export interface JwtUser {
@@ -34,7 +41,6 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
-    console.log('loginDto', loginDto);
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.password,
@@ -77,5 +83,51 @@ export class AuthController {
     }
 
     return userDetails;
+  }
+
+  @Post('forgot-password/send-otp')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordRequestDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('forgot-password/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyForgotPasswordOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyForgotPasswordOtp(dto);
+  }
+
+  @Post('forgot-password/reset')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password/request-otp')
+  @HttpCode(HttpStatus.OK)
+  async requestChangePasswordOtp(
+    @Request() req: AuthRequest,
+    @Body() dto: RequestChangePasswordOtpDto,
+  ) {
+    const userId = req.user.userId || req.user.sub || req.user.id;
+    if (!userId) {
+      throw new UnauthorizedException('Invalid user session.');
+    }
+    return this.authService.requestChangePasswordOtp(userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Request() req: AuthRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const userId = req.user.userId || req.user.sub || req.user.id;
+    if (!userId) {
+      throw new UnauthorizedException('Invalid user session.');
+    }
+    return this.authService.changePassword(userId, dto);
   }
 }

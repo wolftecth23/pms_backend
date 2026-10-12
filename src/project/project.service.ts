@@ -712,8 +712,6 @@ export class ProjectService {
       },
     });
 
-    console.log('project', project);
-
     if (!project) {
       throw new NotFoundException(
         'Project not found or you do not have access to it.',

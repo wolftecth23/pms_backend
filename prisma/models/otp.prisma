@@ -1,0 +1,19 @@
+model OtpVerification {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  otpHash   String
+  type      OtpType
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  isUsed    Boolean  @default(false)
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, type, isUsed])
+  @@map("otp_verifications")
+}

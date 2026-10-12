@@ -113,8 +113,6 @@ export class ContextService {
       );
     }
 
-    console.log('organization', organization);
-
     return {
       userId,
       workspaceId: resolvedWorkspaceId,

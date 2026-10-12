@@ -1,7 +1,22 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  ChangePasswordDto,
+  ChangePasswordWithOtpDto,
+  ForgotPasswordRequestDto,
+  OtpTypeEnum,
+  RequestChangePasswordOtpDto,
+  ResetPasswordDto,
+  VerifyOtpDto,
+} from './dto/otp-auth.dto';
+import { OtpService } from './otp.service';
 
 export interface JwtPayloadUser {
   id: string;
@@ -39,6 +54,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private otpService: OtpService,
   ) {}
 
   async validateUser(
@@ -232,6 +248,188 @@ export class AuthService {
           (rp) => rp?.permission?.code,
         ),
       })),
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordRequestDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { email: dto.email.toLowerCase().trim() },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        'No active account found with this email address.',
+      );
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException(
+        'Your account has been deactivated. Please contact support.',
+      );
+    }
+
+    return this.otpService.generateAndSendOtp({
+      email: user.email,
+      type: OtpTypeEnum.FORGOT_PASSWORD,
+      userId: user.id,
+      recipientName: `${user.firstName} ${user.lastName || ''}`.trim(),
+      purpose: 'Password Reset',
+    });
+  }
+
+  async verifyForgotPasswordOtp(dto: VerifyOtpDto) {
+    await this.otpService.verifyOtp({
+      email: dto.email,
+      type: OtpTypeEnum.FORGOT_PASSWORD,
+      otp: dto.otp,
+      consume: false,
+    });
+
+    return {
+      success: true,
+      message: 'Verification code is valid.',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { email: dto.email.toLowerCase().trim() },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Account not found.');
+    }
+
+    // Verify and consume the OTP
+    await this.otpService.verifyOtp({
+      email: dto.email,
+      type: OtpTypeEnum.FORGOT_PASSWORD,
+      otp: dto.otp,
+      consume: true,
+    });
+
+    const newHashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: newHashedPassword },
+    });
+
+    return {
+      success: true,
+      message:
+        'Password reset successfully. You can now log in with your new password.',
+    };
+  }
+
+  async requestChangePasswordOtp(
+    userId: string,
+    dto: RequestChangePasswordOtpDto,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentValid) {
+      throw new BadRequestException('Incorrect current password.');
+    }
+
+    return this.otpService.generateAndSendOtp({
+      email: user.email,
+      type: OtpTypeEnum.CHANGE_PASSWORD,
+      userId: user.id,
+      recipientName: `${user.firstName} ${user.lastName || ''}`.trim(),
+      purpose: 'Change Password',
+    });
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentValid) {
+      throw new BadRequestException('Incorrect current password.');
+    }
+
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException(
+        'New password cannot be the same as your current password.',
+      );
+    }
+
+    const newHashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: newHashedPassword },
+    });
+
+    return {
+      success: true,
+      message: 'Password changed successfully.',
+    };
+  }
+
+  async changePasswordWithOtp(userId: string, dto: ChangePasswordWithOtpDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentValid) {
+      throw new BadRequestException('Incorrect current password.');
+    }
+
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.password);
+    if (isSamePassword) {
+      throw new BadRequestException(
+        'New password cannot be the same as your current password.',
+      );
+    }
+
+    // Verify and consume OTP
+    await this.otpService.verifyOtp({
+      email: user.email,
+      type: OtpTypeEnum.CHANGE_PASSWORD,
+      otp: dto.otp,
+      consume: true,
+    });
+
+    const newHashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: newHashedPassword },
+    });
+
+    return {
+      success: true,
+      message: 'Password changed successfully.',
     };
   }
 }

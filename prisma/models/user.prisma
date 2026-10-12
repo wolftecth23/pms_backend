@@ -47,5 +47,7 @@ model User {
   crActivities            CRActivity[]    @relation("CRActivityUser")
   crAttachments           CRAttachment[]  @relation("CRUploadedBy")
 
+  otpVerifications OtpVerification[]
+
   @@map("users")
 }

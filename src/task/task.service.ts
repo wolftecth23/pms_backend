@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuthRequest } from '../auth/auth.controller';
+import { OrgPermissionService } from '../common/access/org-permission.service';
 import { ProjectPermissionService } from '../common/access/project-permission.service';
 import { ContextService } from '../common/context/context.service';
 import {
@@ -42,6 +43,7 @@ export class TaskService {
     private readonly taskAssigneeServiceValidation: TaskAssigneeServiceValidation,
     private readonly storageService: StorageService,
     private readonly taskActivityService: TaskActivityService,
+    private readonly orgPermissionService: OrgPermissionService,
   ) {}
 
   async getNextOrder(projectId: string): Promise<number> {
@@ -372,13 +374,19 @@ export class TaskService {
       projectPermissions?: string[];
     };
     const cachedPerms = req.projectPermissions;
-    const canViewAll = cachedPerms
-      ? cachedPerms.includes('*') || cachedPerms.includes('task.view_all')
-      : await this.projectPermissionService.hasProjectPermission(
-          context.userId,
-          projectId,
-          'task.view_all',
-        );
+    const isOwnerOrAdmin = await this.orgPermissionService.isOrgAdminOrOwner(
+      context.userId,
+      context.organizationId,
+    );
+    const canViewAll =
+      isOwnerOrAdmin ||
+      (cachedPerms
+        ? cachedPerms.includes('*') || cachedPerms.includes('task.view_all')
+        : await this.projectPermissionService.hasProjectPermission(
+            context.userId,
+            projectId,
+            'task.view_all',
+          ));
 
     const where: Prisma.TaskWhereInput = {
       projectId,

@@ -94,8 +94,14 @@ export class PermissionGuard implements CanActivate {
     }
 
     const userPermissions = organization.permissions ?? [];
+    const roleName = organization.role?.name?.trim().toLowerCase();
+    const isSuperAdminOrOwner =
+      userPermissions.includes('*') ||
+      roleName === 'owner' ||
+      roleName === 'admin' ||
+      roleName === 'super admin';
 
-    if (requiredPermissions.length) {
+    if (requiredPermissions.length && !isSuperAdminOrOwner) {
       const hasAllPermissions = requiredPermissions.every((permission) =>
         userPermissions.includes(permission),
       );
@@ -116,7 +122,7 @@ export class PermissionGuard implements CanActivate {
       }
     }
 
-    if (anyPermissions.length) {
+    if (anyPermissions.length && !isSuperAdminOrOwner) {
       const hasAnyPermission = anyPermissions.some((permission) =>
         userPermissions.includes(permission),
       );

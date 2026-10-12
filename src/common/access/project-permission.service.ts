@@ -1,10 +1,14 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { StatusScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { OrgPermissionService } from './org-permission.service';
 
 @Injectable()
 export class ProjectPermissionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orgPermissionService: OrgPermissionService,
+  ) {}
 
   async getProjectMember(userId: string, projectId: string) {
     if (!userId || !projectId) {
@@ -58,13 +62,29 @@ export class ProjectPermissionService {
   ): Promise<string[]> {
     const member = await this.getProjectMember(userId, projectId);
     if (!member || !member.projectRole) {
+      const isOwnerOrAdmin = await this.checkOrgOwnerOrAdminForProject(
+        userId,
+        projectId,
+      );
+      if (isOwnerOrAdmin) {
+        return ['*'];
+      }
       return [];
     }
 
     const permissions =
       member.projectRole.permissions?.map((rp) => rp.permission?.code) ?? [];
 
-    return permissions.filter(Boolean);
+    const result = permissions.filter(Boolean);
+    const isOwnerOrAdmin = await this.checkOrgOwnerOrAdminForProject(
+      userId,
+      projectId,
+    );
+    if (isOwnerOrAdmin && !result.includes('*')) {
+      result.push('*');
+    }
+
+    return result;
   }
 
   async hasProjectPermission(
@@ -73,12 +93,8 @@ export class ProjectPermissionService {
     permissionCode: string,
   ): Promise<boolean> {
     const member = await this.getProjectMember(userId, projectId);
-    if (!member) {
-      return false;
-    }
-
-    if (!member.projectRole) {
-      return false;
+    if (!member || !member.projectRole) {
+      return this.checkOrgOwnerOrAdminForProject(userId, projectId);
     }
 
     const permissions =
@@ -88,7 +104,11 @@ export class ProjectPermissionService {
       return true;
     }
 
-    return permissions.includes(permissionCode);
+    if (permissions.includes(permissionCode)) {
+      return true;
+    }
+
+    return this.checkOrgOwnerOrAdminForProject(userId, projectId);
   }
 
   async hasAnyProjectPermission(
@@ -97,12 +117,8 @@ export class ProjectPermissionService {
     permissionCodes: string[],
   ): Promise<boolean> {
     const member = await this.getProjectMember(userId, projectId);
-    if (!member) {
-      return false;
-    }
-
-    if (!member.projectRole) {
-      return false;
+    if (!member || !member.projectRole) {
+      return this.checkOrgOwnerOrAdminForProject(userId, projectId);
     }
 
     const permissions =
@@ -112,7 +128,27 @@ export class ProjectPermissionService {
       return true;
     }
 
-    return permissionCodes.some((code) => permissions.includes(code));
+    if (permissionCodes.some((code) => permissions.includes(code))) {
+      return true;
+    }
+
+    return this.checkOrgOwnerOrAdminForProject(userId, projectId);
+  }
+
+  private async checkOrgOwnerOrAdminForProject(
+    userId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    if (!userId || !projectId) return false;
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (!project?.organizationId) return false;
+    return this.orgPermissionService.isOrgAdminOrOwner(
+      userId,
+      project.organizationId,
+    );
   }
 
   async countProjectOwners(projectId: string): Promise<number> {

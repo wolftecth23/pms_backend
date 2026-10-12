@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyRequest } from 'fastify';
+import { OrgPermissionService } from '../../common/access/org-permission.service';
 import { ProjectPermissionService } from '../../common/access/project-permission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtUser } from '../auth.controller';
@@ -26,6 +27,7 @@ export class ProjectPermissionGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly projectPermissionService: ProjectPermissionService,
     private readonly prisma: PrismaService,
+    private readonly orgPermissionService: OrgPermissionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -66,6 +68,18 @@ export class ProjectPermissionGuard implements CanActivate {
       });
     }
 
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+
+    const isOrgAdminOrOwner = project?.organizationId
+      ? await this.orgPermissionService.isOrgAdminOrOwner(
+          userId,
+          project.organizationId,
+        )
+      : false;
+
     const member = await this.projectPermissionService.getProjectMember(
       userId,
       projectId,
@@ -75,6 +89,10 @@ export class ProjectPermissionGuard implements CanActivate {
       member?.projectRole?.permissions
         ?.map((rp) => rp.permission?.code)
         .filter(Boolean) ?? [];
+
+    if (isOrgAdminOrOwner && !memberPermissions.includes('*')) {
+      memberPermissions.push('*');
+    }
 
     request.projectMember = member;
     request.projectPermissions = memberPermissions;

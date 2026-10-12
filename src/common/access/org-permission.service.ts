@@ -139,4 +139,47 @@ export class OrgPermissionService {
 
     return permissionCodes.some((code) => permissions.includes(code));
   }
+
+  async isOrgAdminOrOwner(
+    userId?: string,
+    organizationId?: string,
+  ): Promise<boolean> {
+    if (!userId || !organizationId) {
+      return false;
+    }
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { ownerId: true },
+    });
+    if (org?.ownerId === userId) {
+      return true;
+    }
+
+    const member = await this.getOrgMember(userId, organizationId);
+    if (!member) {
+      return false;
+    }
+
+    if (member.organization?.ownerId === userId) {
+      return true;
+    }
+
+    const roleName = member.role?.name?.trim().toLowerCase();
+    if (
+      roleName === 'owner' ||
+      roleName === 'admin' ||
+      roleName === 'super admin'
+    ) {
+      return true;
+    }
+
+    const permissions =
+      member.role?.permissions?.map((rp) => rp.permission?.code) ?? [];
+    if (permissions.includes('*')) {
+      return true;
+    }
+
+    return false;
+  }
 }

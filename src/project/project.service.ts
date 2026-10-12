@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, StatusScope } from '@prisma/client';
 import type { AuthRequest } from '../auth/auth.controller';
+import { OrgPermissionService } from '../common/access/org-permission.service';
 import { ProjectAccessService } from '../common/access/project-access.service';
 import { ProjectPermissionService } from '../common/access/project-permission.service';
 import { ContextService } from '../common/context/context.service';
@@ -50,6 +51,8 @@ export class ProjectService {
     private readonly taskStatusServiceValidation: TaskStatusServiceValidation,
 
     private readonly storageService: StorageService,
+
+    private readonly orgPermissionService: OrgPermissionService,
   ) {}
 
   // create(createProjectDto: CreateProjectDto) {
@@ -281,7 +284,15 @@ export class ProjectService {
       deletedAt: null,
     };
 
-    if (!context.hasPermission('project.view_organization')) {
+    const isOwnerOrAdmin = await this.orgPermissionService.isOrgAdminOrOwner(
+      context.userId,
+      context.organizationId,
+    );
+
+    if (
+      !isOwnerOrAdmin &&
+      !context.hasPermission('project.view_organization')
+    ) {
       where.members = {
         some: {
           userId: context.userId,
@@ -344,7 +355,12 @@ export class ProjectService {
       deletedAt: null,
     };
 
-    if (!context.hasPermission('project.view_workspace')) {
+    const isOwnerOrAdmin = await this.orgPermissionService.isOrgAdminOrOwner(
+      context.userId,
+      context.organizationId,
+    );
+
+    if (!isOwnerOrAdmin && !context.hasPermission('project.view_workspace')) {
       where.members = {
         some: {
           userId: context.userId,
@@ -643,8 +659,14 @@ export class ProjectService {
       deletedAt: null,
     };
 
+    const isOwnerOrAdmin = await this.orgPermissionService.isOrgAdminOrOwner(
+      context.userId,
+      context.organizationId,
+    );
+
     if (
-      !context.hasPermission('project.view_workspace') ||
+      !isOwnerOrAdmin &&
+      !context.hasPermission('project.view_workspace') &&
       !context.hasPermission('project.view_organization')
     ) {
       where.members = {

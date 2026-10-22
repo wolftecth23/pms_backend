@@ -277,18 +277,18 @@ export class OrgUserService {
       throw new NotFoundException('Organization not found.');
     }
 
-    const currentMemberCount = await this.prisma.organizationMember.count({
-      where: { organizationId: ctx.organizationId, removedAt: null },
-    });
+    // const currentMemberCount = await this.prisma.organizationMember.count({
+    //   where: { organizationId: ctx.organizationId, removedAt: null },
+    // });
 
-    if (
-      organization.maxMembers &&
-      currentMemberCount >= organization.maxMembers
-    ) {
-      throw new BadRequestException(
-        `Organization has reached its member limit of ${organization.maxMembers} members.`,
-      );
-    }
+    // if (
+    //   organization.maxMembers &&
+    //   currentMemberCount >= organization.maxMembers
+    // ) {
+    //   throw new BadRequestException(
+    //     `Organization has reached its member limit of ${organization.maxMembers} members.`,
+    //   );
+    // }
 
     const email = dto.email.trim().toLowerCase();
 
